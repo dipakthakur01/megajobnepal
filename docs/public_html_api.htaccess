@@ -1,0 +1,14 @@
+# Place this file at: public_html/api/.htaccess on your cPanel server
+PassengerAppType node
+PassengerStartupFile server.js
+PassengerBaseURI /api
+PassengerAppRoot /home3/megajob1/api
+
+# Optional, but useful on CloudLinux cPanel hosts
+PassengerFriendlyErrorPages on
+# Replace with the exact Node path shown in NodeJS Selector if different
+# PassengerNodejs /opt/alt/alt-nodejs18/root/usr/bin/node
+
+# Permissions on server:
+# - public_html/api directory: 0755
+# - .htaccess file: 0644

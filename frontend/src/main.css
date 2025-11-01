@@ -1,0 +1,609 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Custom components */
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+}
+
+.input-field {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.card {
+  @apply bg-white rounded-lg shadow-md p-6 border border-gray-200;
+}
+
+.container {
+  @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Force LTR text direction for rich text editors */
+[contenteditable] {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: embed !important;
+}
+
+.rich-text-editor [contenteditable] {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: embed !important;
+}
+
+/* Loading spinner */
+.spinner {
+  @apply inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin;
+}
+
+/* Caret blink animation for OTP inputs */
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-caret-blink {
+  animation: caret-blink 1s steps(2, start) infinite;
+}
+
+/* Form styles */
+.form-group {
+  @apply mb-4;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-gray-700 mb-2;
+}
+
+.form-error {
+  @apply text-red-600 text-sm mt-1;
+}
+
+/* Text cursor (caret) styling */
+.input-field {
+  caret-color: #3b82f6; /* Blue cursor to match theme */
+}
+
+/* Custom cursor colors for different input types */
+.input-success {
+  caret-color: #10b981; /* Green cursor for success states */
+}
+
+.input-error {
+  caret-color: #ef4444; /* Red cursor for error states */
+}
+
+.input-warning {
+  caret-color: #f59e0b; /* Orange cursor for warning states */
+}
+
+/* Hide cursor (useful for custom implementations) */
+.input-no-cursor {
+  caret-color: transparent;
+}
+
+/* Inherit text color for cursor */
+.input-inherit-cursor {
+  caret-color: currentColor;
+}
+
+/* Navigation styles */
+.nav-link {
+  @apply text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200;
+}
+
+.nav-link.active {
+  @apply text-blue-600 bg-blue-50;
+}
+
+/* Job card styles */
+.job-card {
+  @apply bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow duration-200;
+}
+
+.job-card:hover {
+  @apply border-blue-200;
+}
+
+/* Badge styles */
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-primary {
+  @apply bg-blue-100 text-blue-800;
+}
+
+.badge-success {
+  @apply bg-green-100 text-green-800;
+}
+
+/* Responsive utilities */
+.responsive-container {
+  @apply w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+}
+
+/* Full-width container for job cards - no max-width constraint */
+.full-width-container {
+  @apply w-full px-2 sm:px-4 lg:px-6;
+}
+
+.responsive-grid {
+  @apply grid gap-3;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Full-width job grid - 5 cards per row on large screens */
+.job-grid-full-width {
+  @apply grid gap-2 w-full;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+@media (max-width: 640px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .job-grid-full-width {
+    grid-template-columns: repeat(1, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .job-grid-full-width {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.625rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .job-grid-full-width {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .job-grid-full-width {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 1281px) {
+  .job-grid-full-width {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .job-grid-full-width {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.responsive-flex {
+  @apply flex flex-col sm:flex-row gap-4 sm:gap-6;
+}
+
+/* Blogs articles grid: 3 cards per row on medium+ */
+.articles-grid {
+  @apply grid gap-4;
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 640px) {
+  .articles-grid {
+    grid-template-columns: 1fr;
+    gap: 0.625rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .articles-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.625rem;
+  }
+}
+
+.responsive-text {
+  @apply text-sm sm:text-base lg:text-lg;
+}
+
+.responsive-heading {
+  @apply text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold;
+}
+
+.responsive-subheading {
+  @apply text-lg sm:text-xl lg:text-2xl font-semibold;
+}
+
+/* Mobile-first button styles */
+.btn-responsive {
+  @apply w-full sm:w-auto px-4 py-2 text-sm sm:text-base;
+}
+
+/* Mobile navigation */
+.mobile-nav {
+  @apply block sm:hidden;
+}
+
+.desktop-nav {
+  @apply hidden sm:block;
+}
+
+/* Responsive spacing */
+.section-padding {
+  @apply py-8 sm:py-12 lg:py-16;
+}
+
+.content-padding {
+  @apply p-4 sm:p-6 lg:p-8;
+}
+
+/* Mobile-optimized cards */
+.mobile-card {
+  @apply bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-shadow duration-200;
+}
+
+/* Responsive images */
+.responsive-image {
+  @apply w-full h-auto object-cover rounded-lg;
+}
+
+/* Mobile-friendly forms */
+.mobile-form {
+  @apply space-y-4;
+}
+
+.mobile-input {
+  @apply w-full px-3 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base;
+}
+
+/* Responsive tables */
+.responsive-table {
+  @apply w-full overflow-x-auto;
+}
+
+.responsive-table table {
+  @apply min-w-full divide-y divide-gray-200;
+}
+
+/* Mobile menu styles */
+.mobile-menu {
+  @apply fixed inset-0 z-50 bg-white transform transition-transform duration-300 ease-in-out;
+}
+
+.mobile-menu.open {
+  @apply translate-x-0;
+}
+
+.mobile-menu.closed {
+  @apply translate-x-full;
+}
+
+/* Responsive job cards */
+.job-card-responsive {
+  @apply bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-all duration-200 hover:border-blue-200;
+}
+
+/* Mobile-optimized search */
+.mobile-search {
+  @apply flex flex-col sm:flex-row gap-2 sm:gap-4 w-full;
+}
+
+.mobile-search input {
+  @apply flex-1 min-w-0;
+}
+
+/* Responsive hero sections */
+.hero-responsive {
+  @apply py-12 sm:py-16 lg:py-20 xl:py-24;
+}
+
+.hero-title {
+  @apply text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold leading-tight;
+}
+
+.hero-subtitle {
+  @apply text-base sm:text-lg lg:text-xl text-gray-600 mt-4 sm:mt-6;
+}
+
+/* Mobile-friendly stats */
+.stats-grid {
+  @apply grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 lg:gap-8;
+}
+
+/* Responsive testimonials */
+.testimonial-card {
+  @apply bg-white p-4 sm:p-6 lg:p-8 rounded-lg shadow-md;
+}
+
+/* Mobile-optimized filters */
+.filter-responsive {
+  @apply flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4 sm:mb-6;
+}
+
+/* Responsive pagination */
+.pagination-responsive {
+  @apply flex flex-wrap justify-center gap-1 sm:gap-2 mt-6 sm:mt-8;
+}
+
+/* Mobile drawer styles */
+.drawer-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-40;
+}
+
+.drawer-content {
+  @apply fixed right-0 top-0 h-full w-80 max-w-full bg-white shadow-xl z-50 transform transition-transform duration-300;
+}
+
+/* Responsive modal */
+.modal-responsive {
+  @apply w-full max-w-lg mx-4 sm:mx-auto;
+}
+
+/* Touch-friendly buttons */
+.touch-button {
+  @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
+}
+
+.badge-warning {
+  @apply bg-yellow-100 text-yellow-800;
+}
+
+.badge-danger {
+  @apply bg-red-100 text-red-800;
+}
+
+/* Job Grid Layout Optimization - Uniform card sizing */
+.job-grid {
+  width: 100%;
+  justify-items: center;
+  padding: 0 0.5rem;
+  gap: 1rem !important;
+}
+
+.job-grid .job-card-container {
+  width: 100%;
+  height: auto !important; /* Let card determine its height */
+  max-width: 100% !important; /* Fill grid cell width */
+  min-width: 0 !important; /* Remove artificial minimum width */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Uniform job card styling - Fixed dimensions */
+.job-card-compact {
+  height: auto !important; /* Flexible height */
+  width: 100% !important; /* Full width of container */
+  max-height: none !important; /* Allow expansion */
+  min-height: 0 !important; /* No forced minimum */
+  border-radius: 0.5rem !important; /* Consistent border radius */
+  padding: 0 !important; /* Remove padding to let CardContent handle it */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.job-card-compact:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.job-card-compact .card-content {
+  height: 100% !important; /* Full height of card */
+  padding: 1rem !important; /* Standard padding */
+  overflow: hidden !important; /* Prevent content overflow */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Responsive adjustments for job grid - 4-card layout */
+@media (min-width: 641px) {
+  .job-grid {
+    padding: 0 0.5rem;
+    gap: 0.75rem !important;
+  }
+  
+  .job-grid .job-card-container {
+    height: auto !important; /* Flexible height */
+    max-width: 100% !important; /* Full width within grid */
+    min-width: 0 !important; /* Remove minimum width */
+  }
+}
+
+@media (min-width: 1024px) {
+  .job-grid {
+    padding: 0 0.75rem;
+    gap: 1rem !important;
+  }
+  
+  .job-grid .job-card-container {
+    height: auto !important; /* Flexible height */
+    max-width: 100% !important; /* Full width within grid */
+    min-width: 0 !important; /* No minimum width */
+  }
+}
+
+@media (min-width: 1280px) {
+  .job-grid {
+    padding: 0;
+    gap: 1.5rem !important;
+  }
+  
+  .job-grid .job-card-container {
+    height: auto !important; /* Flexible height across breakpoints */
+    max-width: 100% !important; /* Fill grid cell */
+    min-width: 0 !important;
+  }
+}
+
+/* Responsive utilities */
+@media (max-width: 640px) {
+  .container {
+    @apply px-4;
+  }
+  
+  .card {
+    @apply p-4;
+  }
+}
+
+/* Scrolling animations for enhanced sections */
+@keyframes scroll-right-to-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes scroll-left-to-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-scroll-right-to-left {
+  animation: scroll-right-to-left 30s linear infinite;
+}
+
+.animate-scroll-left-to-right {
+  animation: scroll-left-to-right 30s linear infinite;
+}
+
+/* Fix for dialog overlay background */
+[data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(4px) !important;
+  z-index: 9999 !important;
+}
+
+/* Ensure dialog content is above overlay */
+[data-radix-dialog-content] {
+  z-index: 10000 !important;
+  background-color: white !important;
+}
+
+/* Job card action buttons: remove outline and shrink size */
+button[aria-label="Share"],
+button[aria-label="View"],
+button[aria-label="View Details"],
+button[aria-label="Save"],
+button[data-role="share"],
+button[data-role="view"],
+button[data-role="save"] {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+button[aria-label="Share"]:focus,
+button[aria-label="View"]:focus,
+button[aria-label="View Details"]:focus,
+button[aria-label="Save"]:focus,
+button[data-role="share"]:focus,
+button[data-role="view"]:focus,
+button[data-role="save"]:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Optional subtle hover to keep accessibility while removing focus outline */
+button[aria-label="Share"]:hover,
+button[aria-label="View"]:hover,
+button[aria-label="View Details"]:hover,
+button[aria-label="Save"]:hover,
+button[data-role="share"]:hover,
+button[data-role="view"]:hover,
+button[data-role="save"]:hover {
+  background-color: rgba(255, 165, 0, 0.12);
+}
+
+/* Flip Card Styles */
+/* Flip card utilities for news/video boxes */
+.flip-card { 
+  perspective: 1000px;
+}
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
+}
+.flip-card:hover .flip-inner,
+.flip-active .flip-inner {
+  transform: rotateY(180deg);
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden; /* Improve cross-browser flip rendering */
+}
+.flip-front { }
+.flip-back { 
+  transform: rotateY(180deg);
+}
+/* Slight 3D pop on hover */
+.flip-card:hover { 
+  filter: drop-shadow(0 1px 6px rgba(0,0,0,0.15));
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+/* Ensure contained card has a consistent height */
+.team-card-fixed-height {
+  height: 380px;
+}
