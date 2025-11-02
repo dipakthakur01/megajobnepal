@@ -62,13 +62,17 @@ export function JobSeekerDashboard({ user, jobs, applications, onApplicationUpda
   // Normalize asset URLs from backend so they render correctly in dev/prod
   const normalizeAssetUrl = (url: string): string => {
     if (!url) return '';
-    if (/^https?:\/\//i.test(url) || url.startsWith('data:')) return url;
-    const base = (import.meta.env?.VITE_API_URL as string) || '/api';
-    if (url.startsWith('/api/')) return url; // already proxied
+    const u = String(url);
+    // Rewrite local absolute uploads to same-origin so Vite proxy serves them
+    const localUploadsMatch = u.match(/^https?:\/\/(?:localhost|127\.0\.0\.1):\d+(\/uploads\/.*)$/i);
+    if (localUploadsMatch) return localUploadsMatch[1];
+    if (/^https?:\/\//i.test(u) || u.startsWith('data:')) return u;
+    if (u.startsWith('/api/')) return u; // already proxied
     // Do NOT prefix '/uploads' with '/api'; use same-origin '/uploads' so Vite proxy maps to backend
-    if (url.startsWith('/uploads')) return url;
-    if (url.startsWith('/')) return url; // same-origin absolute path
-    return `${base}/${url}`;
+    if (u.startsWith('/uploads')) return u;
+    if (u.startsWith('/')) return u; // same-origin absolute path
+    const base = (import.meta.env?.VITE_API_URL as string) || '/api';
+    return `${base}/${u}`;
   };
 
   const getUserProfileImageUrl = (u: any): string => {

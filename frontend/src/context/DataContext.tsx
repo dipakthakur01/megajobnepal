@@ -78,7 +78,9 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
         tier: dbJob.tier || (dbJob.employment_type === 'full_time' ? 'premium' : 'latest'),
         category: dbJob.category?.name || dbJob.category_id || 'General',
         experience: dbJob.experience_level === 'senior' ? 'Senior Level' : dbJob.experience_level === 'mid' ? 'Mid Level' : (dbJob.experience_level || 'Entry Level'),
-        tags: [dbJob.employment_type === 'full_time' ? 'Full-time' : dbJob.employment_type === 'part_time' ? 'Part-time' : 'Contract'],
+        tags: Array.isArray(dbJob.tags) && dbJob.tags.length > 0
+          ? dbJob.tags
+          : [dbJob.employment_type === 'full_time' ? 'Full-time' : dbJob.employment_type === 'part_time' ? 'Part-time' : 'Contract'],
         featured: !!dbJob.featured,
         urgent: !!dbJob.urgent,
         logo: dbJob.company?.logo_url || dbJob.logo || '',

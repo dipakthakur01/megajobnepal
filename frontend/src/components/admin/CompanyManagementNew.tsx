@@ -29,6 +29,7 @@ import {
   Upload,
   RefreshCw
 } from 'lucide-react';
+import companyParameterService from '../../services/companyParameterService';
 
 interface Company {
   _id: string;
@@ -93,15 +94,36 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
     status: 'active'
   });
 
-  const industries = [
+  const DEFAULT_INDUSTRIES = [
     'Technology', 'Healthcare', 'Finance', 'Education', 'Manufacturing',
     'Retail', 'Construction', 'Transportation', 'Hospitality', 'Media',
     'Government', 'Non-profit', 'Energy', 'Agriculture', 'Other'
   ];
+  const [industryOptions, setIndustryOptions] = useState<string[]>(DEFAULT_INDUSTRIES);
 
   const companySizes = [
     '1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'
   ];
+
+  // Load industry options from service
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const items = await companyParameterService.list('industry');
+        // Normalize to array of names, supporting either objects or strings
+        const names = Array.isArray(items)
+          ? items.map((it) => (typeof it === 'string' ? it : it?.name)).filter(Boolean)
+          : [];
+        if (mounted && names.length) {
+          setIndustryOptions(names as string[]);
+        }
+      } catch (err) {
+        // keep defaults on error
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Reset Add Company form to clean LTR baseline when modal opens
   useEffect(() => {
@@ -482,7 +504,7 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Industries</SelectItem>
-                {industries.map(industry => (
+                {industryOptions.map(industry => (
                   <SelectItem key={industry} value={industry}>{industry}</SelectItem>
                 ))}
               </SelectContent>
@@ -702,7 +724,7 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
                     <SelectValue placeholder="Select industry" />
                   </SelectTrigger>
                   <SelectContent>
-                    {industries.map(industry => (
+                    {industryOptions.map(industry => (
                       <SelectItem key={industry} value={industry}>{industry}</SelectItem>
                     ))}
                   </SelectContent>
@@ -872,7 +894,7 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
                     <SelectValue placeholder="Select industry" />
                   </SelectTrigger>
                   <SelectContent>
-                    {industries.map(industry => (
+                    {industryOptions.map(industry => (
                       <SelectItem key={industry} value={industry}>{industry}</SelectItem>
                     ))}
                   </SelectContent>

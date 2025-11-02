@@ -47,7 +47,7 @@ export const HomePage = React.memo(function HomePage({
   onLoginRequired 
 }: HomePageProps) {
   const { jobs, loading, error } = useData();
-  const { handleApplyJob } = useApp();
+  const { handleApplyJob, siteSettings } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState('');
@@ -59,23 +59,27 @@ export const HomePage = React.memo(function HomePage({
 
   // Get tier colors
   const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'megajob': return 'text-yellow-600';
-      case 'premium': return 'text-blue-600';
-      case 'prime': return 'text-green-600';
-      case 'newspaper': return 'text-orange-600';
-      default: return 'text-gray-600';
-    }
+    const t = normalizeTier(tier) || 'latest';
+    const cfg = siteSettings?.tierConfig?.[t];
+    return cfg?.textClass || (
+      t === 'megajob' ? 'text-yellow-600' :
+      t === 'premium' ? 'text-blue-600' :
+      t === 'prime' ? 'text-green-600' :
+      t === 'newspaper' ? 'text-orange-600' :
+      'text-gray-600'
+    );
   };
 
   const getTierBgColor = (tier: string) => {
-    switch (tier) {
-      case 'megajob': return 'bg-yellow-50';
-      case 'premium': return 'bg-blue-50';
-      case 'prime': return 'bg-green-50';
-      case 'newspaper': return 'bg-orange-50';
-      default: return 'bg-gray-50';
-    }
+    const t = normalizeTier(tier) || 'latest';
+    const cfg = siteSettings?.tierConfig?.[t];
+    return cfg?.bgClass || (
+      t === 'megajob' ? 'bg-yellow-50' :
+      t === 'premium' ? 'bg-blue-50' :
+      t === 'prime' ? 'bg-green-50' :
+      t === 'newspaper' ? 'bg-orange-50' :
+      'bg-gray-50'
+    );
   };
 
   // Filter jobs based on search criteria

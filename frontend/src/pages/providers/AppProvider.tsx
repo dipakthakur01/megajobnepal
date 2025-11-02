@@ -6,6 +6,7 @@ import { Toaster as SonnerToaster } from '../../components/ui/sonner';
 import { AuthProvider, useAuth } from '@/components/auth/AuthContext';
 import { safeStorage } from '../../lib/safe-storage';
 import { apiClient } from '../../lib/api-client';
+import { normalizeMediaUrl } from '@/utils/media';
 
 type Theme = 'light' | 'dark';
 
@@ -212,6 +213,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, [siteSettings]);
 
+  // Load tier configuration from backend section 'job_tiers'
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiClient.getSectionSettings('job_tiers');
+        const cfg = res?.config || {};
+        if (!cancelled && cfg && typeof cfg === 'object') {
+          setSiteSettings(prev => ({ ...prev, tierConfig: cfg }));
+        }
+      } catch (err) {
+        console.warn('Failed to load job_tiers config', err);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     // Load saved jobs for the current user from storage
     const loadSavedJobs = () => {
@@ -290,13 +309,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isMounted && Array.isArray(companiesArr)) {
           const normalized = companiesArr.map((c: any) => {
             const logoUrl = c?.logo_url || c?.logoUrl || c?.logo || null;
+            const normalizedLogo = normalizeMediaUrl(logoUrl) || (logoUrl || '');
             return {
               ...c,
               id: c?._id || c?.id,
               // Normalize logo fields so all UIs can render consistently
-              logo_url: logoUrl,
-              logo: c?.logo || logoUrl || '',
-              logoUrl: c?.logoUrl || logoUrl || '',
+              logo_url: normalizedLogo,
+              logo: c?.logo ? (normalizeMediaUrl(c?.logo) || c?.logo) : normalizedLogo,
+              logoUrl: c?.logoUrl ? (normalizeMediaUrl(c?.logoUrl) || c?.logoUrl) : normalizedLogo,
             };
           });
           setCompanies(normalized);
@@ -317,12 +337,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (isMounted && Array.isArray(employersArr) && employersArr.length && (!companies || companies.length === 0)) {
           const normalized = employersArr.map((c: any) => {
             const logoUrl = c?.logo_url || c?.logoUrl || c?.logo || null;
+            const normalizedLogo = normalizeMediaUrl(logoUrl) || (logoUrl || '');
             return {
               ...c,
               id: c?._id || c?.id,
-              logo_url: logoUrl,
-              logo: c?.logo || logoUrl || '',
-              logoUrl: c?.logoUrl || logoUrl || '',
+              logo_url: normalizedLogo,
+              logo: c?.logo ? (normalizeMediaUrl(c?.logo) || c?.logo) : normalizedLogo,
+              logoUrl: c?.logoUrl ? (normalizeMediaUrl(c?.logoUrl) || c?.logoUrl) : normalizedLogo,
             };
           });
           setCompanies(normalized);
@@ -350,16 +371,50 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const res: any = await apiClient.getJobs({ limit: 100, status: 'active' });
         const items = Array.isArray(res?.jobs) ? res.jobs : Array.isArray(res) ? res : [];
+        // Build company industry lookup for better category mapping
+        const companyMapById: Record<string, string> = {};
+        try {
+          (companies || []).forEach((c: any) => {
+            const id = String(c?._id || c?.id || '');
+            if (id) companyMapById[id] = c?.industry || c?.category || '';
+          });
+        } catch {}
+
         const mapped: Job[] = items.map((dbJob: any) => ({
           id: dbJob.id || dbJob._id || String(Math.random()),
           title: dbJob.title || 'Untitled Job',
           company: dbJob.company?.name || dbJob.company || dbJob.company_id || 'Unknown Company',
           location: dbJob.location || 'Not specified',
           type: dbJob.type || dbJob.tier || 'latest_job',
-          category: dbJob.category?.name || dbJob.category_id || 'General',
-          salary: dbJob.salary_min && dbJob.salary_max
-            ? `${dbJob.salary_currency || 'NPR'} ${Number(dbJob.salary_min).toLocaleString()} - ${Number(dbJob.salary_max).toLocaleString()}`
-            : (dbJob.salary || 'Negotiable'),
+          // Prefer company's industry as category if available
+          category: (companyMapById[String(dbJob.company_id || dbJob.companyId || '')] || dbJob.category?.name || dbJob.category_id || '').toString() || '',
+          // Salary mapping: support structured fields and legacy salary_range
+          salary: (() => {
+            const currency = dbJob.salary_currency || 'NPR';
+            const t = dbJob.salary_type;
+            if (t === 'negotiable') return 'Negotiable';
+            if (t === 'competitive') return 'Competitive';
+            const min = dbJob.salary_min;
+            const max = dbJob.salary_max;
+            if (t === 'range' && min && max) {
+              const mi = parseInt(String(min));
+              const ma = parseInt(String(max));
+              if (!isNaN(mi) && !isNaN(ma)) return `${currency} ${mi.toLocaleString()} - ${ma.toLocaleString()}`;
+            }
+            if (t === 'exact' && dbJob.salary) {
+              const amt = parseInt(String(dbJob.salary));
+              if (!isNaN(amt)) return `${currency} ${amt.toLocaleString()}`;
+            }
+            // fallback to provided salary_range or salary
+            if (dbJob.salary_range) return dbJob.salary_range;
+            if (dbJob.salary) return dbJob.salary;
+            if (min && max) {
+              const mi = parseInt(String(min));
+              const ma = parseInt(String(max));
+              if (!isNaN(mi) && !isNaN(ma)) return `${currency} ${mi.toLocaleString()} - ${ma.toLocaleString()}`;
+            }
+            return 'Negotiable';
+          })(),
           experience: dbJob.experience_level || dbJob.experience || 'Entry Level',
           description: dbJob.description || '',
           requirements: Array.isArray(dbJob.requirements)
@@ -585,6 +640,8 @@ export interface SiteSettings {
   establishedYear: string;
   // New: override label shown on job cards
   jobBadgeLabel?: string;
+  // New: job tier configuration loaded from backend section 'job_tiers'
+  tierConfig?: Record<string, { label?: string; badgeClass?: string; textClass?: string; bgClass?: string }>;
 }
 
 

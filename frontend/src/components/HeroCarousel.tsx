@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { CompactToggle } from './ui/simple-toggle';
 import { apiClient } from '@/lib/api-client';
+import { normalizeMediaUrl } from '@/utils/media';
 
 interface HeroImage {
   id: string;
@@ -92,7 +93,7 @@ export const HeroCarousel: React.FC<{ children?: React.ReactNode }> = ({ childre
         const activeImages = rawImages.filter((img: any) => img.isActive);
         const normalizedImages = activeImages.map((img: any, idx: number) => ({
           id: img.id ?? `${idx}-${Math.random().toString(36).slice(2)}`,
-          url: img.url ?? '',
+          url: normalizeMediaUrl(img.url) || (img.url ?? ''),
           title: img.title ?? '',
           description: img.description ?? '',
           opacity: typeof img.opacity === 'number' ? img.opacity : 25,

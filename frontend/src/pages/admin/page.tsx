@@ -1,23 +1,51 @@
 import { NewAdminPanel } from '@/components/SuperAdminPanel';
 import { useApp } from '@/pages/providers/AppProvider';
 import { useNavigate } from 'react-router-dom';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthContext';
 import { apiClient } from '@/lib/api-client';
 
 export default function AdminDashboard() {
   const { 
-    jobs, 
     users, 
     applications, 
     companies, 
     currentUser,
-    setJobs,
     setUsers,
     setCompanies
   } = useApp();
   const navigate = useNavigate();
   const { user, isAuthenticated, loading, logout } = useAuth();
+  
+  // Local admin jobs state driven by backend (mirrors Super Admin behavior)
+  const [adminJobs, setAdminJobs] = useState<any[]>([]);
+  
+  // Normalize user shape for UI consumption
+  const normalizeUser = (u: any) => {
+    const detectedType = (u?.user_type === 'job_seeker')
+      ? 'jobseeker'
+      : (u?.user_type === 'employer')
+        ? 'employer'
+        : (u?.user_type || u?.type || 'user');
+    return {
+      id: u?._id || u?.id || String(Date.now()),
+      name: u?.full_name || u?.name || u?.email || '',
+      email: u?.email || '',
+      type: detectedType,
+      user_type: detectedType,
+      company: u?.company_name || u?.company || '',
+      profile: u?.profile || {}
+    };
+  };
+
+  // Normalize job shape for UI and diffing
+  const normalizeJob = (j: any) => ({
+    id: j.id || j._id,
+    ...j,
+    approvalStatus: j.approvalStatus || j.approval_status || (
+      j.status === 'active' ? 'approved' : j.status === 'rejected' ? 'rejected' : 'pending'
+    ),
+  });
 
   // Gate by AuthContext: must be authenticated admin
   useEffect(() => {
@@ -39,6 +67,38 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
+  // Initial load of admin jobs from backend (shows actual jobs listed)
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.getAdminJobs();
+        const list = Array.isArray((res as any)?.jobs) ? (res as any).jobs : (Array.isArray(res) ? res : []);
+        setAdminJobs(list.map(normalizeJob));
+      } catch (err) {
+        // Fallback: keep empty list if fetch fails
+        setAdminJobs([]);
+        console.warn('Admin jobs fetch failed:', err);
+      }
+    })();
+  }, []);
+
+  // Initial load of users (job seekers + employers + admins) for management section
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiClient.getAllUsers({ page: 1, limit: 500 });
+        const items = Array.isArray((res as any)?.users)
+          ? (res as any).users
+          : (Array.isArray(res) ? (res as any) : []);
+        const mapped = items.map(normalizeUser);
+        setUsers(mapped);
+      } catch (err) {
+        console.warn('Admin users fetch failed:', err);
+        // Leave existing users state untouched on failure
+      }
+    })();
+  }, []);
+
   // Persist companies to local storage and update global state
   const handleCompanyUpdate = (nextCompanies: any[]) => {
     // Update global state only; backend persistence can be added per-company
@@ -47,11 +107,11 @@ export default function AdminDashboard() {
 
   // Persist jobs to local storage and update global state
   const handleJobUpdate = async (nextJobs: any[]) => {
-    const oldJobs = jobs;
-    setJobs(nextJobs);
+    const oldJobs = adminJobs;
+    setAdminJobs(nextJobs.map(normalizeJob));
     try {
-      const oldMap = new Map(oldJobs.map((j: any) => [j.id, j]));
-      const nextMap = new Map(nextJobs.map((j: any) => [j.id, j]));
+      const oldMap = new Map(oldJobs.map((j: any) => [j.id || j._id, j]));
+      const nextMap = new Map(nextJobs.map((j: any) => [j.id || j._id, j]));
 
       const created = Array.from(nextMap.keys())
         .filter((id) => !oldMap.has(id))
@@ -81,13 +141,15 @@ export default function AdminDashboard() {
         featured: job.featured,
         license_required: !!(job.license_required ?? job.licenseRequired),
         deadline: job.deadline,
-        status: job.status || (job.approvalStatus === 'approved' ? 'active' : job.approvalStatus === 'rejected' ? 'rejected' : 'inactive')
+        // Admin-created jobs default to pending unless explicitly set
+        status: job.status || 'pending'
       };
         calls.push(apiClient.createJobByAdmin(payload));
       }
 
       for (const job of deleted) {
-        if (job.id) calls.push(apiClient.deleteJobByAdmin(job.id));
+        const jid = job.id || job._id;
+        if (jid) calls.push(apiClient.deleteJobByAdmin(jid));
       }
 
       for (const change of updated) {
@@ -95,10 +157,22 @@ export default function AdminDashboard() {
         const after = change.after;
         const approvalChanged = before.approvalStatus !== after.approvalStatus;
         const statusChanged = before.status !== after.status;
+        const tierChanged = before.tier !== after.tier;
         if (approvalChanged || statusChanged) {
-          const action = (after.approvalStatus === 'approved' || after.status === 'active') ? 'approve' : 'reject';
-          calls.push(apiClient.moderateJob(after.id, action));
+          // Use explicit admin approval/rejection endpoints
+          if (after.approvalStatus === 'approved' || after.status === 'active') {
+            const tierToSet = after.tier || after.type || 'megajob';
+            calls.push(apiClient.approveAdminJob(after.id || after._id, tierToSet));
+          } else if (after.approvalStatus === 'rejected' || after.status === 'rejected') {
+            calls.push(apiClient.rejectAdminJob(after.id || after._id, 'Rejected by admin'));
+          } else {
+            const action = (after.status === 'active') ? 'approve' : 'reject';
+            calls.push(apiClient.moderateJob(after.id || after._id, action));
+          }
           continue;
+        }
+        if (tierChanged) {
+          calls.push(apiClient.updateAdminJobTier(after.id || after._id, after.tier));
         }
         const companyObj = companies.find((c: any) => c.name === after.company);
         const updatePayload: any = {
@@ -113,14 +187,21 @@ export default function AdminDashboard() {
           tier: after.tier || after.type,
           featured: after.featured,
           license_required: !!(after.license_required ?? after.licenseRequired),
-          deadline: after.deadline
+          deadline: after.deadline,
+          cover_image_url: (after as any).cover_image_url || (after as any).coverImageUrl
         };
-        calls.push(apiClient.updateJobByAdmin(after.id, updatePayload));
+        calls.push(apiClient.updateJobByAdmin(after.id || after._id, updatePayload));
       }
 
-      Promise.allSettled(calls).catch(() => {
-        // Dev: keep UI responsive; persistence errors can be retried
-      });
+      await Promise.allSettled(calls);
+      // Refresh from server to ensure list reflects actual backend data
+      try {
+        const refreshed = await apiClient.getAdminJobs();
+        const list = Array.isArray((refreshed as any)?.jobs) ? (refreshed as any).jobs : (Array.isArray(refreshed) ? refreshed : []);
+        setAdminJobs(list.map(normalizeJob));
+      } catch {
+        // Keep optimistic state on refresh failures
+      }
     } catch { /* noop */ }
   };
 
@@ -147,7 +228,7 @@ export default function AdminDashboard() {
 
   return (
     <NewAdminPanel
-      jobs={jobs}
+      jobs={adminJobs}
       users={users}
       applications={applications}
       companies={companies}

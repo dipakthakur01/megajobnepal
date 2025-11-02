@@ -5,6 +5,7 @@ import { Badge } from './ui/badge';
 import { MapPin, Calendar, DollarSign, Eye, Bookmark, Share2 } from 'lucide-react';
 import { Job } from '../lib/mockData';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { normalizeMediaUrl } from '@/utils/media';
 import { SimpleShareModal } from './SimpleShareModal';
 import { toast } from 'sonner';
 
@@ -85,12 +86,24 @@ export const JobCard = React.memo(function JobCard({ job, onViewJob, tierColor, 
         {/* Company Logo and Job Title - Fixed Height */}
         <div className="flex items-start space-x-3 mb-3 h-16">
           <div className="flex-shrink-0">
-            <ImageWithFallback
-              src={job.logo || 'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=48&h=48&fit=crop&crop=face'}
-              fallbackSrc={'https://images.unsplash.com/photo-1560179707-f14e90ef3623?w=48&h=48&fit=crop&crop=face'}
-              alt={job.company}
-              className="w-12 h-12 rounded-full object-cover border-2 border-gray-100"
-            />
+            {(() => {
+              const v =
+                (job as any).company_logo ||
+                (job as any).companyLogo ||
+                (job as any).logo ||
+                (job as any).coverImageUrl ||
+                (job as any).cover_image_url ||
+                '';
+              const src = v ? (normalizeMediaUrl(String(v)) || String(v)) : `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company || 'Job')}&size=48&background=f3f4f6&color=374151&bold=true`;
+              return (
+                <ImageWithFallback
+                  src={src}
+                  fallbackSrc={`https://ui-avatars.com/api/?name=${encodeURIComponent(job.company || 'Job')}&size=48&background=f3f4f6&color=374151&bold=true`}
+                  alt={job.company}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-gray-100"
+                />
+              );
+            })()}
           </div>
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-semibold text-gray-900 mb-1 line-clamp-2 leading-tight">

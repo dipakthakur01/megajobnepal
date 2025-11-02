@@ -103,7 +103,11 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
   const [employmentType, setEmploymentType] = useState<string>('full-time');
   const [experienceLevel, setExperienceLevel] = useState<string>('entry');
   const [categoryId, setCategoryId] = useState<string>('');
-  const [salaryRange, setSalaryRange] = useState('');
+  // Structured salary inputs
+  const [salaryType, setSalaryType] = useState<string>('exact');
+  const [salaryMin, setSalaryMin] = useState<string>('');
+  const [salaryMax, setSalaryMax] = useState<string>('');
+  const [salary, setSalary] = useState<string>('');
   const [publishingJob, setPublishingJob] = useState(false);
   const [jobErrors, setJobErrors] = useState<Record<string, string>>({});
   const [deadline, setDeadline] = useState<string>('');
@@ -460,7 +464,27 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
         title: jobTitle.trim(),
         description: jobDescription.trim(),
         requirements: jobRequirements.trim(),
-        salary_range: salaryRange.trim(),
+        // wire structured salary fields + derive salary_range for compatibility
+        salary_type: salaryType,
+        salary: salaryType === 'exact' ? (salary || '').trim() : undefined,
+        salary_min: salaryType === 'range' ? (salaryMin || '').trim() : undefined,
+        salary_max: salaryType === 'range' ? (salaryMax || '').trim() : undefined,
+        salary_currency: 'NPR',
+        salary_range: (() => {
+          const currency = 'NPR';
+          if (salaryType === 'negotiable') return 'Negotiable';
+          if (salaryType === 'competitive') return 'Competitive';
+          if (salaryType === 'range' && salaryMin && salaryMax) {
+            const mi = parseInt(String(salaryMin));
+            const ma = parseInt(String(salaryMax));
+            if (!isNaN(mi) && !isNaN(ma)) return `${currency} ${mi.toLocaleString()} - ${ma.toLocaleString()}`;
+          }
+          if (salaryType === 'exact' && salary) {
+            const amt = parseInt(String(salary));
+            if (!isNaN(amt)) return `${currency} ${amt.toLocaleString()}`;
+          }
+          return '';
+        })(),
         location: jobLocation.trim(),
         category_id: categoryId,
         company_id: companyId,
@@ -476,7 +500,10 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
       setJobDescription('');
       setJobRequirements('');
       setJobLocation('');
-      setSalaryRange('');
+      setSalaryType('exact');
+      setSalary('');
+      setSalaryMin('');
+      setSalaryMax('');
       setEmploymentType('full-time');
       setExperienceLevel('entry');
       setCategoryId('');
@@ -758,8 +785,47 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
                     {jobErrors.deadline && <div className="text-red-600 text-xs mt-1">{jobErrors.deadline}</div>}
                   </div>
                   <div>
-                    <Label>Salary Range</Label>
-                    <Input value={salaryRange} onChange={(e)=>setSalaryRange(e.target.value)} placeholder="e.g. NPR 60,000 - 90,000"/>
+                    <Label>Salary</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label>Salary Type</Label>
+                        <Select value={salaryType} onValueChange={(v)=>setSalaryType(v)}>
+                          <SelectTrigger><SelectValue placeholder="Select type"/></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="range">Salary Range</SelectItem>
+                            <SelectItem value="exact">Fixed Salary</SelectItem>
+                            <SelectItem value="negotiable">Negotiable</SelectItem>
+                            <SelectItem value="competitive">Competitive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div/>
+                    </div>
+                    {salaryType === 'range' && (
+                      <div className="grid grid-cols-2 gap-2 mt-2">
+                        <div>
+                          <Label>Minimum (NPR)</Label>
+                          <Input type="number" value={salaryMin} onChange={(e)=>setSalaryMin(e.target.value)} placeholder="e.g. 50000"/>
+                        </div>
+                        <div>
+                          <Label>Maximum (NPR)</Label>
+                          <Input type="number" value={salaryMax} onChange={(e)=>setSalaryMax(e.target.value)} placeholder="e.g. 80000"/>
+                        </div>
+                      </div>
+                    )}
+                    {salaryType === 'exact' && (
+                      <div className="mt-2">
+                        <Label>Amount (NPR)</Label>
+                        <Input type="number" value={salary} onChange={(e)=>setSalary(e.target.value)} placeholder="e.g. 60000"/>
+                      </div>
+                    )}
+                    {(salaryType === 'negotiable' || salaryType === 'competitive') && (
+                      <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <div className="text-xs text-blue-700">
+                          {salaryType === 'negotiable' ? 'Salary will be marked as "Negotiable".' : 'Salary will be marked as "Competitive".'}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <Button className="w-full" onClick={handlePublishJob} disabled={publishingJob || !companyId}>{publishingJob ? 'Publishing...' : 'Publish'}</Button>
                   {!companyId && <div className="text-xs text-muted-foreground mt-1">Attach company profile to post jobs.</div>}

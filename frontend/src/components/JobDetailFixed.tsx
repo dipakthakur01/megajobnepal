@@ -13,6 +13,7 @@ import { MapPin, Briefcase, Calendar, DollarSign, Users, Heart, Share2, Building
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ShareJobModal } from './ShareJobModal';
 import { useApp } from '@/pages/providers/AppProvider';
+import { normalizeMediaUrl } from '@/utils/media';
 
 // Job interface matching our actual structure from mockData.js
 interface Job {
@@ -112,26 +113,11 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
     const nameFromJob = (jobData as any).company;
     const normalizedTarget = normalizeName(String(nameFromJob || ''));
 
-    // 1) Prefer job-specific cover image when available for detail view
-    if ((jobData as any).coverImageUrl) return (jobData as any).coverImageUrl;
-    if ((jobData as any).cover_image_url) return (jobData as any).cover_image_url;
+    // Prefer explicit job/company logo fields
+    if ((jobData as any).logo) { const v = (jobData as any).logo; return normalizeMediaUrl(v) || v; }
+    if ((jobData as any).companyLogo) { const v = (jobData as any).companyLogo; return normalizeMediaUrl(v) || v; }
 
-    // 2) Then prefer global company cover image for consistency
-    if (normalizedTarget && Array.isArray(globalCompanies) && globalCompanies.length > 0) {
-      const found = (globalCompanies as any[]).find(c => {
-        const nm = normalizeName(String(c.name || c.companyName || c.company_name || ''));
-        return nm === normalizedTarget;
-      });
-      if (found && (found.coverImageUrl || found.cover_image_url)) {
-        return found.coverImageUrl || found.cover_image_url;
-      }
-    }
-
-    // 3) Then fallback to job/logo fields
-    if ((jobData as any).logo) return (jobData as any).logo;
-    if ((jobData as any).companyLogo) return (jobData as any).companyLogo;
-
-    // 4) Finally, any global company logo variations
+    // Then, any global company logo variations
     if (normalizedTarget && Array.isArray(globalCompanies) && globalCompanies.length > 0) {
       const found = (globalCompanies as any[]).find(c => {
         const nm = normalizeName(String(c.name || c.companyName || c.company_name || ''));
@@ -139,11 +125,11 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
       });
       if (found) {
         const logoCandidate = found.logo_url || found.logoUrl || found.logo || found.profileImage || found.company_logo || found.companyLogo;
-        if (logoCandidate) return logoCandidate as string;
+        if (logoCandidate) { const v = logoCandidate as string; return normalizeMediaUrl(v) || v; }
       }
     }
 
-    // 5) Placeholder
+    // Placeholder
     const nm = (jobData as any).company || 'Company';
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(nm)}&background=random&color=fff&size=128&font-size=0.6&format=svg`;
   };
@@ -325,9 +311,10 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
         <div className="relative mb-8 rounded-2xl overflow-hidden h-40 md:h-52 lg:h-64">
           {safeJob.coverImageUrl ? (
             <ImageWithFallback
-              src={safeJob.coverImageUrl}
+              src={normalizeMediaUrl(safeJob.coverImageUrl)}
               alt={safeJob.title}
               className="absolute inset-0 w-full h-full object-cover"
+              fallbackSrc={getCompanyLogo(safeJob)}
             />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-r from-orange-50 to-blue-50" />
@@ -409,7 +396,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
                         disabled={hasApplied || !currentUser || isEmployer}
                         className="w-full hover:bg-primary/10 hover:text-primary border-primary/20"
                       >
-                        <FileText className="w-4 h-4 mr-2" />
+                        <FileText className="w-4 h-4 mr-1" />
                         {!currentUser ? 'Login for Detailed Apply' : isEmployer ? 'Employers cannot apply' : 'Detailed Apply'}
                       </Button>
                     </DialogTrigger>
@@ -554,7 +541,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
                       variant="outline"
                       className={`flex-1 ${isSaved ? 'bg-red-50 border-red-200 text-red-600' : 'hover:bg-primary/10 hover:text-primary'}`}
                     >
-                      <Heart className={`w-4 h-4 mr-2 ${isSaved ? 'fill-current' : ''}`} />
+                      <Heart className={`w-4 h-4 mr-0.5 ${isSaved ? 'fill-current' : ''}`} />
                       {isSaved ? 'Saved' : 'Save Job'}
                     </Button>
                     
@@ -563,7 +550,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
                       variant="outline"
                       className="flex-1 hover:bg-primary/10 hover:text-primary"
                     >
-                      <Share2 className="w-4 h-4 mr-2" />
+                      <Share2 className="w-4 h-4 mr-1" />
                       Share
                     </Button>
                   </div>
@@ -730,7 +717,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
                         window.location.href = `/company/${companySlug}`;
                       }
                     }}
-                    className="w-full"
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white shadow-md border border-orange-600"
                     title="View company details"
                     aria-label="View company details"
                   >

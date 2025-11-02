@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AdminDashboardNew } from './admin/AdminDashboardNew';
 import { SiteManagement } from './admin/SiteManagement';
 import { TrustedCompaniesManagement } from './admin/TrustedCompaniesManagement';
-import { RoleManagement } from './admin/RoleManagement';
+import { RoleManagement } from './super-admin/RoleManagement';
 // UserManagement is handled in Admin dashboard, not Super Admin
 import { EmployerManagementNew } from './admin/EmployerManagementNew';
 import { JobPostManagement } from './admin/JobPostManagement';
@@ -122,6 +122,33 @@ export function NewAdminPanel({
     return () => { mounted = false; };
   }, []);
 
+  // Load all users including admins to ensure dashboard counts reflect reality
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res: any = await apiClient.getAllUsers({ limit: 500 });
+        const items: any[] = Array.isArray(res?.users) ? res.users : (Array.isArray(res) ? res : []);
+        const mapped = items.map((u: any) => ({
+          id: u._id || u.id || String(Date.now()),
+          name: u.full_name || u.name || '',
+          email: u.email || '',
+          // Normalize both fields so downstream UIs can use either
+          user_type: (u.user_type || u.type || '').toLowerCase(),
+          type: (u.user_type === 'job_seeker' ? 'jobseeker' : (u.user_type || u.type || '')).toLowerCase(),
+          company: u.company_name || u.company || '',
+          profile: u.profile || {}
+        }));
+        if (mounted && typeof onUserUpdate === 'function') {
+          onUserUpdate(mapped);
+        }
+      } catch (err) {
+        console.warn('Admin users fetch failed:', err);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   // Proxy: apply optimistic update then refresh from server
   const onCompanyUpdateServerDriven = async (nextCompanies: any[]) => {
     // Optimistic update
@@ -138,14 +165,16 @@ export function NewAdminPanel({
   };
 
   // Statistics for navigation badges
+  const jobSeekerCount = users.filter(u => u?.type === 'jobseeker' || u?.user_type === 'job_seeker').length;
+  const employerCount = companies.length;
   const stats = {
     totalJobs: jobs.length,
-    pendingJobs: jobs.filter(job => job.status === 'pending').length || 12,
-    totalUsers: users.length,
-    pendingApplications: applications.filter(app => app.status === 'pending').length || 24,
+    pendingJobs: jobs.filter(job => job.status === 'pending' || (job as any)?.approvalStatus === 'pending').length,
+    totalUsers: jobSeekerCount + employerCount,
+    pendingApplications: applications.filter(app => (app as any)?.status === 'pending').length,
     totalCompanies: companies.length,
-    verifiedEmployers: companies.filter(c => c.verified).length || 45,
-    unverifiedEmployers: companies.filter(c => !c.verified).length || 22
+    verifiedEmployers: companies.filter(c => !!c.verified).length,
+    unverifiedEmployers: companies.filter(c => !c.verified).length
   };
 
   const navigationItems = [
@@ -342,7 +371,7 @@ export function NewAdminPanel({
       case 'job-parameters':
         return <JobParameterManagement />;
       case 'company-parameters':
-        return <CompanyParameterManagement />;
+        return <CompanyParameterManagement companies={companies} jobs={jobs} applications={applications} />;
       case 'cv-shortlisting':
         return <CvShortlisting jobs={jobs} applications={applications} />;
       case 'company-management':

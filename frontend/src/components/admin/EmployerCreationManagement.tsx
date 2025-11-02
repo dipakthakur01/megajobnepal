@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -34,6 +34,7 @@ import {
 import { toast } from 'sonner';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { confirmDelete } from '../../utils/confirmDelete';
+import companyParameterService from '../../services/companyParameterService';
 
 interface EmployerCreationManagementProps {
   companies: any[];
@@ -125,12 +126,13 @@ export function EmployerCreationManagement({
     autoApproveJobs: false
   });
 
-  const industryOptions = [
+  const DEFAULT_INDUSTRIES = [
     'Technology', 'Healthcare', 'Finance', 'Education', 'Manufacturing',
     'Retail', 'Construction', 'Hospitality', 'Transportation', 'Media',
     'Non-Profit', 'Government', 'Agriculture', 'Energy', 'Real Estate',
     'Consulting', 'Banking', 'Insurance', 'Telecommunications', 'Other'
   ];
+  const [industryOptions, setIndustryOptions] = useState<string[]>(DEFAULT_INDUSTRIES);
 
   const companySizeOptions = [
     '1-10 employees',
@@ -141,9 +143,34 @@ export function EmployerCreationManagement({
     '1000+ employees'
   ];
 
-  const companyTypeOptions = [
+  const DEFAULT_COMPANY_TYPES = [
     'Private', 'Public', 'Non-Profit', 'Government', 'Startup', 'Enterprise'
   ];
+  const [companyTypeOptions, setCompanyTypeOptions] = useState<string[]>(DEFAULT_COMPANY_TYPES);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [industries, companyTypes] = await Promise.all([
+          companyParameterService.list('industry'),
+          companyParameterService.list('company_type'),
+        ]);
+        const toNames = (items: any) => Array.isArray(items)
+          ? items.map((it: any) => (typeof it === 'string' ? it : it?.name)).filter(Boolean)
+          : [];
+        const ind = toNames(industries);
+        const ct = toNames(companyTypes);
+        if (mounted) {
+          if (ind.length) setIndustryOptions(ind as string[]);
+          if (ct.length) setCompanyTypeOptions(ct as string[]);
+        }
+      } catch (e) {
+        // keep defaults on error
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const filteredEmployers = employersWithCompanies.filter(employer => 
     employer.firstName?.toLowerCase().includes(searchTerm.toLowerCase()) ||

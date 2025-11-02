@@ -34,5 +34,16 @@ module.exports = {
       return res.status(403).json({ error: `Forbidden: requires ${role} role` });
     }
     next();
+  },
+  // Allow any from a set of roles (e.g., ['admin','super_admin'])
+  requireAnyRole: (roles) => (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Access token required' });
+    }
+    const allowed = Array.isArray(roles) ? roles : [roles];
+    if (!allowed.includes(req.user.user_type)) {
+      return res.status(403).json({ error: `Forbidden: requires one of roles: ${allowed.join(', ')}` });
+    }
+    next();
   }
 };

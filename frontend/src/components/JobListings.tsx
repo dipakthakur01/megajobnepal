@@ -7,6 +7,8 @@ import { JobCardUpdated as JobCard } from './JobCardUpdated';
 import { JobMapView } from './JobMapView';
 import { useData } from '../context/DataContext';
 import { searchHistoryService } from '../services/searchHistoryService';
+import { useApp } from '@/pages/providers/AppProvider';
+import { normalizeTier } from '../utils/tier';
 import type { JobCategory, Company } from '../lib/db-service';
 import type { Job as DbJob } from '../lib/db-service';
 // Removed dependency on mockData Job type; relying on DataContext jobs
@@ -37,6 +39,7 @@ interface JobListingsProps {
 
 export function JobListings({ onViewJob, onSaveJob, onApply, savedJobs, filter, isUserLoggedIn = false, onLoginRequired, onViewCompany }: JobListingsProps) {
   const { jobs, loading, error } = useData();
+  const { siteSettings } = useApp();
   const [categories, setCategories] = useState<JobCategory[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -320,18 +323,15 @@ export function JobListings({ onViewJob, onSaveJob, onApply, savedJobs, filter, 
   };
 
   const getTierColor = (tier: string) => {
-    switch (tier) {
-      case 'megajob':
-        return 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white';
-      case 'premium':
-        return 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white';
-      case 'prime':
-        return 'bg-gradient-to-r from-green-500 to-emerald-500 text-white';
-      case 'newspaper':
-        return 'bg-gradient-to-r from-orange-500 to-red-500 text-white';
-      default:
-        return 'bg-gradient-to-r from-purple-500 to-pink-500 text-white';
-    }
+    const t = normalizeTier(tier) || 'latest';
+    const cfg = siteSettings?.tierConfig?.[t];
+    return cfg?.badgeClass || (
+      t === 'megajob' ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white' :
+      t === 'premium' ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white' :
+      t === 'prime' ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' :
+      t === 'newspaper' ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' :
+      'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+    );
   };
 
   // Pagination

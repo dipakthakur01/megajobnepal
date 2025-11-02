@@ -132,6 +132,39 @@ function getDefaultSection(section) {
       accentColor: '#4F46E5',
       // New: default recipient email for Contact form submissions
       contactRecipientEmail: 'support@megajobnepal.com.np'
+    },
+    // New: job tiers configuration for labels and colors used across the site
+    job_tiers: {
+      megajob: {
+        label: 'MegaJob',
+        badgeClass: 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white',
+        textClass: 'text-yellow-600',
+        bgClass: 'bg-yellow-50'
+      },
+      premium: {
+        label: 'Premium',
+        badgeClass: 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white',
+        textClass: 'text-blue-600',
+        bgClass: 'bg-blue-50'
+      },
+      prime: {
+        label: 'Prime',
+        badgeClass: 'bg-gradient-to-r from-green-500 to-emerald-500 text-white',
+        textClass: 'text-green-600',
+        bgClass: 'bg-green-50'
+      },
+      newspaper: {
+        label: 'Newspaper',
+        badgeClass: 'bg-gradient-to-r from-orange-500 to-red-500 text-white',
+        textClass: 'text-orange-600',
+        bgClass: 'bg-orange-50'
+      },
+      latest: {
+        label: 'Latest',
+        badgeClass: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
+        textClass: 'text-gray-600',
+        bgClass: 'bg-gray-50'
+      }
     }
   };
   return defaults[section] || {};

@@ -33,7 +33,10 @@ const {
   updateCompanyLogoByAdmin,
   updateJobCoverByAdmin,
   listAdminUsers,
-  resetCompanies
+  resetCompanies,
+  listPermissionsCatalog,
+  getUserPermissions,
+  updateUserPermissions
 } = require('../controllers/adminController');
 
 // Job approval management endpoints
@@ -94,6 +97,10 @@ router.post('/password/change', changePassword);
 // Super Admin - Staff management routes (protected)
 router.post('/admin-users', requireRole('super_admin'), createAdminUser);
 router.get('/admin-users', requireRole('super_admin'), listAdminUsers);
+// Permissions management
+router.get('/permissions', requireRole('super_admin'), listPermissionsCatalog);
+router.get('/admin-users/:id/permissions', requireRole('super_admin'), getUserPermissions);
+router.patch('/admin-users/:id/permissions', requireRole('super_admin'), updateUserPermissions);
 
 // Compatibility: some clients send PATCH instead of PUT
 router.patch('/admin-users/:id', requireRole('super_admin'), updateAdminUser);

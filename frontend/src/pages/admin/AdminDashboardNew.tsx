@@ -171,15 +171,6 @@ export function AdminDashboardNew({ jobs, users, applications, companies, stats,
       {/* User Statistics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Admin"
-          count={dashboardStats.totalAdmins}
-          icon={Users}
-          gradient="bg-gradient-to-br from-red-500 to-red-600"
-          textColor="text-red-600"
-          onClick={onNavigateToSection}
-          section="role-management"
-        />
-        <StatCard
           title="Users"
           count={dashboardStats.totalUsers}
           icon={Users}

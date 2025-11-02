@@ -612,6 +612,19 @@ class APIClient {
     return await this.request(`/admin/admin-users${queryParams.toString() ? '?' + queryParams.toString() : ''}`);
   }
 
+  // Get all users (system-wide) for Super Admin overview
+  async getAllUsers(params: { page?: number; limit?: number; search?: string } = {}) {
+    const queryParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, String(value));
+      }
+    });
+    const endpoint = `/admin/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const res = await this.request(endpoint);
+    return Array.isArray((res as any)?.users) ? (res as any) : { users: Array.isArray(res) ? (res as any) : [], pagination: (res as any)?.pagination };
+  }
+
   async createAdminUser(payload: { email: string; password: string; full_name?: string; role?: 'admin' | 'hr' | 'super_admin' }) {
     // Super admin creates staff accounts
     return await this.request('/admin/admin-users', {
@@ -643,6 +656,22 @@ class APIClient {
     return await this.request(`/admin/users/${id}/role`, {
       method: 'PATCH',
       body: JSON.stringify({ role }),
+    });
+  }
+
+  // Permissions catalog and user permissions management
+  async getPermissionsCatalog() {
+    return await this.request('/admin/permissions', { method: 'GET' });
+  }
+
+  async getUserPermissions(id: string) {
+    return await this.request(`/admin/admin-users/${id}/permissions`, { method: 'GET' });
+  }
+
+  async updateUserPermissions(id: string, permissions: string[]) {
+    return await this.request(`/admin/admin-users/${id}/permissions`, {
+      method: 'PATCH',
+      body: JSON.stringify({ permissions }),
     });
   }
 

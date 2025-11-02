@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -9,6 +9,7 @@ import { Label } from '../ui/label';
 import { Plus, Edit, Trash2, Search, User, Mail, Calendar, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { confirmDelete } from '../../utils/confirmDelete';
+import { apiClient } from '../../lib/api-client';
 
 interface UserManagementProps {
   users: any[];
@@ -22,10 +23,11 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [localUsers, setLocalUsers] = useState<any[]>(Array.isArray(users) ? users : []);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
-    type: 'jobseeker' as 'jobseeker' | 'employer' | 'admin',
+    type: 'jobseeker' as 'jobseeker' | 'employer',
     company: '',
     profile: {
       resume: '',
@@ -34,13 +36,41 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
     }
   });
 
+  // Load all users for admin dashboard but show only job seekers and employers
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await apiClient.getAllUsers({ limit: 500 });
+        const items = Array.isArray((res as any)?.users) ? (res as any).users : (Array.isArray(res) ? (res as any) : []);
+        const mapped = items.map((u: any) => ({
+          id: u._id || u.id || String(Date.now()),
+          name: u.full_name || u.name || '',
+          email: u.email,
+          type: (u.user_type === 'job_seeker' ? 'jobseeker' : (u.user_type || '')),
+          company: u.company_name || u.company || '',
+          profile: u.profile || {}
+        }));
+        if (mounted) setLocalUsers(mapped);
+        if (typeof onUserUpdate === 'function') onUserUpdate(mapped);
+      } catch (err) {
+        console.warn('Failed to load users for admin dashboard', err);
+        // fall back to passed-in users prop if any
+        if (mounted && Array.isArray(users)) setLocalUsers(users);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
   // Filter users based on search and filters
-  const filteredUsers = users.filter(user => {
+  const filteredUsers = localUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (user.company && user.company.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesType = filterType === 'all' || user.type === filterType;
+    // Only show Job Seekers and Employers by default when filterType is 'all'
+    const matchesType = filterType === 'all' 
+      ? ['jobseeker', 'employer'].includes(user.type)
+      : user.type === filterType;
     const matchesStatus = filterStatus === 'all'; // Can add status logic later
 
     return matchesSearch && matchesType && matchesStatus;
@@ -56,7 +86,9 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
       } : undefined
     };
 
-    onUserUpdate([...users, user]);
+    const next = [...localUsers, user];
+    setLocalUsers(next);
+    if (typeof onUserUpdate === 'function') onUserUpdate(next);
     setIsCreateModalOpen(false);
     setNewUser({
       name: '',
@@ -75,7 +107,7 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
   const handleEditUser = () => {
     if (!selectedUser) return;
 
-    const updatedUsers = users.map(user =>
+    const updatedUsers = localUsers.map((user: any) =>
       user.id === selectedUser.id
         ? {
             ...selectedUser,
@@ -88,8 +120,8 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
           }
         : user
     );
-
-    onUserUpdate(updatedUsers);
+    setLocalUsers(updatedUsers);
+    if (typeof onUserUpdate === 'function') onUserUpdate(updatedUsers);
     setIsEditModalOpen(false);
     setSelectedUser(null);
     toast.success('User updated successfully!');
@@ -97,8 +129,9 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
 
   const handleDeleteUser = (userId: string) => {
     if (confirmDelete('Are you sure you want to delete this user?')) {
-      const updatedUsers = users.filter(user => user.id !== userId);
-      onUserUpdate(updatedUsers);
+      const updatedUsers = localUsers.filter((user: any) => user.id !== userId);
+      setLocalUsers(updatedUsers);
+      if (typeof onUserUpdate === 'function') onUserUpdate(updatedUsers);
       toast.success('User deleted successfully!');
     }
   };
@@ -148,7 +181,6 @@ export function UserManagement({ users, onUserUpdate }: UserManagementProps) {
           <SelectContent>
             <SelectItem value="jobseeker">Job Seeker</SelectItem>
             <SelectItem value="employer">Employer</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
           </SelectContent>
         </Select>
       </div>

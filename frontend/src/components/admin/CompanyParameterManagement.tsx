@@ -31,52 +31,119 @@ import { toast } from 'sonner';
 import companyParameterService from '../../services/companyParameterService';
 import { confirmDelete } from '../../utils/confirmDelete';
 
-export function CompanyParameterManagement() {
+interface CompanyParameterManagementProps {
+  companies?: any[];
+  jobs?: any[];
+  applications?: any[];
+}
+
+export function CompanyParameterManagement({ 
+  companies = [], 
+  jobs = [], 
+  applications = [] 
+}: CompanyParameterManagementProps) {
   const [activeTab, setActiveTab] = useState('industries');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const remoteTabs = ['industries', 'ownership'] as const;
 
-  // Mock data for different company parameters
+  // Function to calculate real usage statistics
+  const calculateUsageStats = () => {
+    const safeCompanies = Array.isArray(companies) ? companies : [];
+    
+    // Calculate industry usage
+    const industryUsage: { [key: string]: number } = {};
+    safeCompanies.forEach(company => {
+      const industry = company?.industry || company?.category || '';
+      if (industry) {
+        industryUsage[industry] = (industryUsage[industry] || 0) + 1;
+      }
+    });
+
+    // Calculate company size usage
+    const sizeUsage: { [key: string]: number } = {};
+    safeCompanies.forEach(company => {
+      const size = company?.size || company?.company_size || company?.totalEmployees || '';
+      if (size) {
+        // Normalize size ranges
+        let normalizedSize = '';
+        if (size.includes('1-10') || size === '1-10' || size === 'Small') normalizedSize = '1-10';
+        else if (size.includes('11-50') || size === '11-50') normalizedSize = '11-50';
+        else if (size.includes('51-200') || size === '51-200' || size === 'Medium') normalizedSize = '51-200';
+        else if (size.includes('201-500') || size === '201-500') normalizedSize = '201-500';
+        else if (size.includes('501-1000') || size === '501-1000') normalizedSize = '501-1000';
+        else if (size.includes('1000+') || size === '1000+' || size === 'Large') normalizedSize = '1000+';
+        
+        if (normalizedSize) {
+          sizeUsage[normalizedSize] = (sizeUsage[normalizedSize] || 0) + 1;
+        }
+      }
+    });
+
+    // Calculate ownership/company type usage
+    const ownershipUsage: { [key: string]: number } = {};
+    safeCompanies.forEach(company => {
+      const type = company?.companyType || company?.company_type || company?.ownership || '';
+      if (type) {
+        ownershipUsage[type] = (ownershipUsage[type] || 0) + 1;
+      }
+    });
+
+    // Calculate department usage based on job postings
+    const departmentUsage: { [key: string]: number } = {};
+    const safeJobs = Array.isArray(jobs) ? jobs : [];
+    safeJobs.forEach(job => {
+      const department = job?.department || job?.category || '';
+      if (department) {
+        departmentUsage[department] = (departmentUsage[department] || 0) + 1;
+      }
+    });
+
+    return { industryUsage, sizeUsage, ownershipUsage, departmentUsage };
+  };
+
+  const { industryUsage, sizeUsage, ownershipUsage, departmentUsage } = calculateUsageStats();
+
+  // Real data for different company parameters (with calculated usage)
   const [parameters, setParameters] = useState({
     industries: [
-      { id: '1', name: 'Information Technology', description: 'Software, hardware, and IT services', usage: 89, status: 'active' },
-      { id: '2', name: 'Banking & Finance', description: 'Banks, financial services, insurance', usage: 76, status: 'active' },
-      { id: '3', name: 'Healthcare & Medical', description: 'Hospitals, clinics, medical services', usage: 54, status: 'active' },
-      { id: '4', name: 'Education & Training', description: 'Schools, colleges, training institutes', usage: 67, status: 'active' },
-      { id: '5', name: 'Manufacturing', description: 'Production, assembly, industrial', usage: 43, status: 'active' },
-      { id: '6', name: 'Retail & E-commerce', description: 'Retail stores, online commerce', usage: 56, status: 'active' },
-      { id: '7', name: 'Construction & Real Estate', description: 'Building, property development', usage: 34, status: 'active' },
-      { id: '8', name: 'Tourism & Hospitality', description: 'Hotels, restaurants, travel', usage: 45, status: 'active' }
+      { id: '1', name: 'Information Technology', description: 'Software, hardware, and IT services', usage: industryUsage['Information Technology'] || industryUsage['Technology'] || 0, status: 'active' },
+      { id: '2', name: 'Banking & Finance', description: 'Banks, financial services, insurance', usage: industryUsage['Banking & Finance'] || industryUsage['Finance'] || 0, status: 'active' },
+      { id: '3', name: 'Healthcare & Medical', description: 'Hospitals, clinics, medical services', usage: industryUsage['Healthcare & Medical'] || industryUsage['Healthcare'] || 0, status: 'active' },
+      { id: '4', name: 'Education & Training', description: 'Schools, colleges, training institutes', usage: industryUsage['Education & Training'] || industryUsage['Education'] || 0, status: 'active' },
+      { id: '5', name: 'Manufacturing', description: 'Production, assembly, industrial', usage: industryUsage['Manufacturing'] || 0, status: 'active' },
+      { id: '6', name: 'Retail & E-commerce', description: 'Retail stores, online commerce', usage: industryUsage['Retail & E-commerce'] || industryUsage['Retail'] || 0, status: 'active' },
+      { id: '7', name: 'Construction & Real Estate', description: 'Building, property development', usage: industryUsage['Construction & Real Estate'] || industryUsage['Construction'] || 0, status: 'active' },
+      { id: '8', name: 'Tourism & Hospitality', description: 'Hotels, restaurants, travel', usage: industryUsage['Tourism & Hospitality'] || industryUsage['Hospitality'] || 0, status: 'active' }
     ],
     departments: [
-      { id: '1', name: 'Human Resources', description: 'HR management and recruitment', usage: 125, status: 'active' },
-      { id: '2', name: 'Information Technology', description: 'Software development and IT support', usage: 156, status: 'active' },
-      { id: '3', name: 'Sales & Marketing', description: 'Sales and marketing activities', usage: 134, status: 'active' },
-      { id: '4', name: 'Finance & Accounting', description: 'Financial management and accounting', usage: 98, status: 'active' },
-      { id: '5', name: 'Operations', description: 'Daily business operations', usage: 87, status: 'active' },
-      { id: '6', name: 'Customer Service', description: 'Customer support and service', usage: 76, status: 'active' },
-      { id: '7', name: 'Research & Development', description: 'Product research and development', usage: 54, status: 'active' },
-      { id: '8', name: 'Quality Assurance', description: 'Quality control and testing', usage: 43, status: 'active' }
+      { id: '1', name: 'Human Resources', description: 'HR management and recruitment', usage: departmentUsage['Human Resources'] || departmentUsage['HR'] || 0, status: 'active' },
+      { id: '2', name: 'Information Technology', description: 'Software development and IT support', usage: departmentUsage['Information Technology'] || departmentUsage['IT'] || departmentUsage['Technology'] || 0, status: 'active' },
+      { id: '3', name: 'Sales & Marketing', description: 'Sales and marketing activities', usage: departmentUsage['Sales & Marketing'] || departmentUsage['Marketing'] || departmentUsage['Sales'] || 0, status: 'active' },
+      { id: '4', name: 'Finance & Accounting', description: 'Financial management and accounting', usage: departmentUsage['Finance & Accounting'] || departmentUsage['Finance'] || departmentUsage['Accounting'] || 0, status: 'active' },
+      { id: '5', name: 'Operations', description: 'Daily business operations', usage: departmentUsage['Operations'] || 0, status: 'active' },
+      { id: '6', name: 'Customer Service', description: 'Customer support and service', usage: departmentUsage['Customer Service'] || departmentUsage['Support'] || 0, status: 'active' },
+      { id: '7', name: 'Research & Development', description: 'Product research and development', usage: departmentUsage['Research & Development'] || departmentUsage['R&D'] || 0, status: 'active' },
+      { id: '8', name: 'Quality Assurance', description: 'Quality control and testing', usage: departmentUsage['Quality Assurance'] || departmentUsage['QA'] || 0, status: 'active' }
     ],
     ownership: [
-      { id: '1', name: 'Private Limited', description: 'Private limited company', usage: 189, status: 'active' },
-      { id: '2', name: 'Public Limited', description: 'Public limited company', usage: 67, status: 'active' },
-      { id: '3', name: 'Partnership', description: 'Partnership firm', usage: 45, status: 'active' },
-      { id: '4', name: 'Sole Proprietorship', description: 'Individual ownership', usage: 34, status: 'active' },
-      { id: '5', name: 'Government', description: 'Government organization', usage: 23, status: 'active' },
-      { id: '6', name: 'NGO/Non-Profit', description: 'Non-governmental organization', usage: 28, status: 'active' },
-      { id: '7', name: 'Cooperative', description: 'Cooperative society', usage: 16, status: 'active' },
-      { id: '8', name: 'Multinational', description: 'Multinational corporation', usage: 19, status: 'active' }
+      { id: '1', name: 'Private Limited', description: 'Private limited company', usage: ownershipUsage['Private Limited'] || ownershipUsage['Private'] || 0, status: 'active' },
+      { id: '2', name: 'Public Limited', description: 'Public limited company', usage: ownershipUsage['Public Limited'] || ownershipUsage['Public'] || 0, status: 'active' },
+      { id: '3', name: 'Partnership', description: 'Partnership firm', usage: ownershipUsage['Partnership'] || 0, status: 'active' },
+      { id: '4', name: 'Sole Proprietorship', description: 'Individual ownership', usage: ownershipUsage['Sole Proprietorship'] || 0, status: 'active' },
+      { id: '5', name: 'Government', description: 'Government organization', usage: ownershipUsage['Government'] || 0, status: 'active' },
+      { id: '6', name: 'NGO/Non-Profit', description: 'Non-governmental organization', usage: ownershipUsage['NGO/Non-Profit'] || ownershipUsage['Non-profit'] || 0, status: 'active' },
+      { id: '7', name: 'Cooperative', description: 'Cooperative society', usage: ownershipUsage['Cooperative'] || 0, status: 'active' },
+      { id: '8', name: 'Multinational', description: 'Multinational corporation', usage: ownershipUsage['Multinational'] || 0, status: 'active' }
     ],
     sizes: [
-      { id: '1', name: '1-10 employees', range: '1-10', description: 'Startup/Small business', usage: 156, status: 'active' },
-      { id: '2', name: '11-50 employees', range: '11-50', description: 'Small company', usage: 134, status: 'active' },
-      { id: '3', name: '51-200 employees', range: '51-200', description: 'Medium company', usage: 89, status: 'active' },
-      { id: '4', name: '201-500 employees', range: '201-500', description: 'Large company', usage: 45, status: 'active' },
-      { id: '5', name: '501-1000 employees', range: '501-1000', description: 'Enterprise company', usage: 23, status: 'active' },
-      { id: '6', name: '1000+ employees', range: '1000+', description: 'Large enterprise', usage: 18, status: 'active' }
+      { id: '1', name: '1-10 employees', range: '1-10', description: 'Startup/Small business', usage: sizeUsage['1-10'] || 0, status: 'active' },
+      { id: '2', name: '11-50 employees', range: '11-50', description: 'Small company', usage: sizeUsage['11-50'] || 0, status: 'active' },
+      { id: '3', name: '51-200 employees', range: '51-200', description: 'Medium company', usage: sizeUsage['51-200'] || 0, status: 'active' },
+      { id: '4', name: '201-500 employees', range: '201-500', description: 'Large company', usage: sizeUsage['201-500'] || 0, status: 'active' },
+      { id: '5', name: '501-1000 employees', range: '501-1000', description: 'Enterprise company', usage: sizeUsage['501-1000'] || 0, status: 'active' },
+      { id: '6', name: '1000+ employees', range: '1000+', description: 'Large enterprise', usage: sizeUsage['1000+'] || 0, status: 'active' }
     ],
     vehicles: [
       { id: '1', name: 'Two Wheeler', description: 'Motorcycle, scooter provided', usage: 89, status: 'active' },

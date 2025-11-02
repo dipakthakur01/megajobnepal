@@ -99,14 +99,14 @@ function buildWhere(filter) {
           continue;
         }
       }
-      // equality and regex
+      // equality and regex (skip operator objects)
       for (const [key, value] of Object.entries(obj)) {
         if (key === '_id' || key === 'id' || key === '$or') continue;
         const colExpr = jsonText(key);
         if (value instanceof RegExp) {
           const pattern = value.source;
           parts.push(`LOWER(${colExpr}) LIKE ${addParam('%' + pattern.toLowerCase() + '%')}`);
-        } else if (value !== undefined && value !== null) {
+        } else if (value !== undefined && value !== null && typeof value !== 'object') {
           parts.push(`${colExpr} = ${addParam(String(value))}`);
         }
       }
@@ -160,14 +160,14 @@ function buildWhere(filter) {
     }
   }
 
-  // equality and regex top-level
+  // equality and regex top-level (skip operator objects)
   for (const [key, value] of Object.entries(filter)) {
     if (key === '_id' || key === 'id' || key === '$or') continue;
     const colExpr = jsonText(key);
     if (value instanceof RegExp) {
       const pattern = value.source;
       clauses.push(`LOWER(${colExpr}) LIKE ${addParam('%' + pattern.toLowerCase() + '%')}`);
-    } else if (value !== undefined && value !== null) {
+    } else if (value !== undefined && value !== null && typeof value !== 'object') {
       clauses.push(`${colExpr} = ${addParam(String(value))}`);
     }
   }

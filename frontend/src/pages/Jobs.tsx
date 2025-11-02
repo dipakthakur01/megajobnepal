@@ -5,6 +5,7 @@ import { DataContext, useData } from '../context/DataContext';
 import { useAuth } from '../hooks/useAuth';
 import { LoadingSpinner } from './LoadingSpinner';
 import { HeroCarousel } from '../components/HeroCarousel';
+import { slugify } from '@/utils/slug';
 import { Button } from '../components/ui/button';
 
 const Jobs: React.FC = () => {
@@ -19,7 +20,9 @@ const Jobs: React.FC = () => {
   const urlFilter = filterType && filterValue ? { type: filterType, value: filterValue } : undefined;
 
   const handleViewJob = (jobId: string) => {
-    navigate(`/jobs/${jobId}`);
+    const job = jobs.find(j => j.id === jobId);
+    const slug = job ? slugify(String(job.title)) : jobId;
+    navigate(`/jobs/${slug}`);
   };
 
   const handleSaveJob = (jobId: string) => {

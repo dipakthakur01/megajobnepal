@@ -13,7 +13,9 @@ import { toast } from 'sonner';
 import { MapPin, Briefcase, Calendar, DollarSign, Users, Heart, Share2, Building, Clock, Bell, Upload, FileText, Eye, AlertCircle, Send, BookmarkPlus } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ShareJobModal } from '../components/ShareJobModal';
+import { slugify } from '@/utils/slug';
 import { useApp } from '@/pages/providers/AppProvider';
+import { normalizeMediaUrl } from '@/utils/media';
 
 // Job object structure matching our actual structure from mockData.js
 // Job properties: id, title, company, location, description, requirements, postedDate, deadline, salary, type, tier, category, experience, tags, featured, urgent, companyLogo, logo, source, publishedDate, approvalStatus, approvedBy, approvedDate, rejectedBy, rejectedDate, rejectionReason, submittedBy, submittedDate
@@ -99,9 +101,9 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
   // Helper function to get company logo
   const getCompanyLogo = (job: Job): string => {
     // Primary sources on job itself
-    if ((job as any).logo) return (job as any).logo;
-    if ((job as any).coverImageUrl) return (job as any).coverImageUrl;
-    if ((job as any).companyLogo) return (job as any).companyLogo;
+    if ((job as any).logo) { const v = (job as any).logo; return normalizeMediaUrl(v) || v; }
+    if ((job as any).coverImageUrl) { const v = (job as any).coverImageUrl; return normalizeMediaUrl(v) || v; }
+    if ((job as any).companyLogo) { const v = (job as any).companyLogo; return normalizeMediaUrl(v) || v; }
 
     // Try to find company in global state by name
     const nameFromJob = (job as any).company;
@@ -115,7 +117,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
       if (found) {
         // Check all possible logo field variations
         const logoCandidate = found.logo_url || found.logoUrl || found.logo || found.profileImage;
-        if (logoCandidate) return logoCandidate;
+        if (logoCandidate) { const v = logoCandidate; return normalizeMediaUrl(v) || v; }
       }
     }
 
@@ -739,7 +741,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
                     <Button 
                       variant="outline" 
                       className="w-full"
-                      onClick={() => onViewJob(relatedJob.id)}
+                      onClick={() => onViewJob(slugify(String(relatedJob.title)))}
                     >
                       View Details
                     </Button>

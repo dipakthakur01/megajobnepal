@@ -15,6 +15,18 @@ const jobSchema = {
     required: true,
     minLength: 10
   },
+  // New: skills associated with the job posting
+  skills: {
+    type: 'array',
+    items: { type: 'string' },
+    required: false
+  },
+  // New: tags for categorization/filters
+  tags: {
+    type: 'array',
+    items: { type: 'string' },
+    required: false
+  },
   salary_range: {
     type: 'string',
     required: false
@@ -45,6 +57,11 @@ const jobSchema = {
     type: 'string',
     default: 'active',
     enum: ['active', 'inactive', 'closed']
+  },
+  // New: job-specific cover image url
+  cover_image_url: {
+    type: 'string',
+    required: false
   },
   created_by: {
     type: 'objectId',

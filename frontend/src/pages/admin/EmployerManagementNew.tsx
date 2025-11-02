@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
+import companyParameterService from '../../services/companyParameterService';
 
 interface EmployerManagementNewProps {
   companies: any[];
@@ -35,12 +36,36 @@ export function EmployerManagementNew({ companies, jobs, applications, onCompany
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [verificationFilter, setVerificationFilter] = useState('all');
+  const [industryFilter, setIndustryFilter] = useState('all');
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
+
+  const DEFAULT_INDUSTRIES = [
+    'Technology','Healthcare','Finance','Education','Manufacturing','Retail',
+    'Construction','Transportation','Hospitality','Media','Government','Non-profit',
+    'Energy','Agriculture','Other'
+  ];
+  const [industryOptions, setIndustryOptions] = useState<string[]>(DEFAULT_INDUSTRIES);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const items = await companyParameterService.list('industry');
+        const names = Array.isArray(items)
+          ? items.map((it: any) => (typeof it === 'string' ? it : it?.name)).filter(Boolean)
+          : [];
+        if (mounted && names.length) setIndustryOptions(names as string[]);
+      } catch (e) {
+        // ignore fetch errors, keep defaults
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const enhancedCompanies = useMemo(() => {
     return companies.map((company) => {
@@ -83,9 +108,11 @@ export function EmployerManagementNew({ companies, jobs, applications, onCompany
       const matchesVerification = verificationFilter === 'all' ||
         (verificationFilter === 'verified' && company.verified) ||
         (verificationFilter === 'unverified' && !company.verified);
-      return matchesSearch && matchesStatus && matchesVerification;
+      const matchesIndustry = industryFilter === 'all' ||
+        (String(company.industry || '').toLowerCase() === String(industryFilter).toLowerCase());
+      return matchesSearch && matchesStatus && matchesVerification && matchesIndustry;
     });
-  }, [enhancedCompanies, searchTerm, statusFilter, verificationFilter]);
+  }, [enhancedCompanies, searchTerm, statusFilter, verificationFilter, industryFilter]);
 
   const openProfileModal = (company: any) => {
     setSelectedCompany(company);
@@ -298,6 +325,16 @@ export function EmployerManagementNew({ companies, jobs, applications, onCompany
                     <option value="all">All Verification</option>
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
+                  </select>
+                  <select
+                    value={industryFilter}
+                    onChange={(e) => setIndustryFilter(e.target.value)}
+                    className="px-3 py-2 border rounded-md bg-white"
+                  >
+                    <option value="all">All Industries</option>
+                    {industryOptions.map((ind) => (
+                      <option key={ind} value={ind}>{ind}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -528,6 +565,14 @@ export function EmployerManagementNew({ companies, jobs, applications, onCompany
             <Input placeholder="Phone" value={formData.phone || ''} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
             <Input placeholder="Location" value={formData.location || ''} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
             <Input placeholder="Website" value={formData.website || ''} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
+            <Select value={formData.industry || ''} onValueChange={(v) => setFormData({ ...formData, industry: v })}>
+              <SelectTrigger><SelectValue placeholder="Select industry" /></SelectTrigger>
+              <SelectContent>
+                {industryOptions.map((i) => (
+                  <SelectItem key={i} value={i}>{i}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={formData.status || 'active'} onValueChange={(v) => setFormData({ ...formData, status: v })}>
               <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
               <SelectContent>

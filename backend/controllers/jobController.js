@@ -136,6 +136,12 @@ const createJob = async (req, res) => {
       description,
       requirements,
       salary_range,
+      // new structured salary fields (optional)
+      salary_type,
+      salary,
+      salary_min,
+      salary_max,
+      salary_currency,
       location,
       category_id,
       company_id,
@@ -150,11 +156,50 @@ const createJob = async (req, res) => {
 
     const db = getDB();
 
+    // Derive salary_range for compatibility when structured fields are present
+    let derivedSalaryRange = salary_range;
+    try {
+      const currency = salary_currency || 'NPR';
+      if (!derivedSalaryRange && salary_type) {
+        switch (String(salary_type)) {
+          case 'negotiable':
+            derivedSalaryRange = 'Negotiable';
+            break;
+          case 'competitive':
+            derivedSalaryRange = 'Competitive';
+            break;
+          case 'range':
+            if (salary_min && salary_max) {
+              const min = parseInt(String(salary_min));
+              const max = parseInt(String(salary_max));
+              if (!isNaN(min) && !isNaN(max)) {
+                derivedSalaryRange = `${currency} ${min.toLocaleString()} - ${max.toLocaleString()}`;
+              }
+            }
+            break;
+          case 'exact':
+            if (salary) {
+              const amt = parseInt(String(salary));
+              if (!isNaN(amt)) {
+                derivedSalaryRange = `${currency} ${amt.toLocaleString()}`;
+              }
+            }
+            break;
+        }
+      }
+    } catch (_) {}
+
     const newJob = {
       title,
       description,
       requirements,
-      salary_range,
+      // store both for flexibility
+      salary_range: derivedSalaryRange || salary_range,
+      salary_type: salary_type || null,
+      salary: salary || null,
+      salary_min: salary_min || null,
+      salary_max: salary_max || null,
+      salary_currency: salary_currency || (salary_type ? 'NPR' : null),
       location,
       category_id,
       company_id: company_id,

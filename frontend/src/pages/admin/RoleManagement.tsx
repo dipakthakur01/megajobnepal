@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Badge } from '../components/ui/badge';
-import { Textarea } from '../components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { Textarea } from '../../components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +14,8 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../components/ui/dialog';
-import { Checkbox } from '../components/ui/checkbox';
+} from '../../components/ui/dialog';
+import { Checkbox } from '../../components/ui/checkbox';
 import { 
   Shield, 
   Users, 
@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { confirmDelete } from '../../utils/confirmDelete';
+import { apiClient } from '../../lib/api-client';
 
 interface User {
   id: string;
@@ -56,6 +57,7 @@ interface RoleManagementProps {
 export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
+  const [selectedUserType, setSelectedUserType] = useState('all');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
   const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
@@ -102,44 +104,65 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
       permissions: ['view_users', 'manage_support_tickets'],
       userCount: 8,
       color: 'orange'
+    },
+    {
+      id: '6',
+      name: 'Employer',
+      description: 'Company representatives who post jobs',
+      permissions: ['manage_own_jobs', 'view_applications'],
+      userCount: 50,
+      color: 'indigo'
+    },
+    {
+      id: '7',
+      name: 'Job Seeker',
+      description: 'Users looking for employment opportunities',
+      permissions: ['apply_jobs', 'manage_profile'],
+      userCount: 1200,
+      color: 'emerald'
     }
   ]);
 
-  // Mock admin users
-  const [adminUsers, setAdminUsers] = useState<User[]>([
-    {
-      id: '1',
-      name: 'Super Admin',
-      email: 'admin@megajobnepal.com.np',
-      role: 'Super Admin',
-      status: 'active',
-      lastLogin: '2024-01-15 10:30 AM'
-    },
-    {
-      id: '2',
-      name: 'John Doe',
-      email: 'john@megajobnepal.com.np',
-      role: 'Admin',
-      status: 'active',
-      lastLogin: '2024-01-14 2:15 PM'
-    },
-    {
-      id: '3',
-      name: 'Sarah Wilson',
-      email: 'sarah@megajobnepal.com.np',
-      role: 'HR Manager',
-      status: 'active',
-      lastLogin: '2024-01-13 9:45 AM'
-    },
-    {
-      id: '4',
-      name: 'Mike Johnson',
-      email: 'mike@megajobnepal.com.np',
-      role: 'Content Manager',
-      status: 'inactive',
-      lastLogin: '2024-01-10 4:20 PM'
-    }
-  ]);
+  // All users from API
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+
+  // Function to map backend user_type to frontend role labels
+  const mapRoleLabel = (user_type?: string) => {
+    const t = String(user_type || '').toLowerCase();
+    if (t === 'super_admin') return 'Super Admin';
+    if (t === 'admin') return 'Admin';
+    if (t === 'hr') return 'HR Manager';
+    if (t === 'content' || t === 'content_manager') return 'Content Manager';
+    if (t === 'support' || t === 'support_agent') return 'Support Agent';
+    if (t === 'employer') return 'Employer';
+    if (t === 'job_seeker' || t === 'jobseeker') return 'Job Seeker';
+    return 'Job Seeker'; // Default for unknown types
+  };
+
+  // Load all users from API
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        // Load all system users for Admin dashboard
+        const res = await apiClient.getAllUsers({ limit: 500 });
+        const items = Array.isArray((res as any)?.users) ? (res as any).users : (Array.isArray(res) ? (res as any) : []);
+        const mapped: User[] = items.map((u: any) => ({
+          id: u._id || u.id || String(Date.now()),
+          name: u.full_name || u.name || '',
+          email: u.email,
+          role: mapRoleLabel(u.user_type),
+          status: (u.status === 'inactive' ? 'inactive' : 'active'),
+          lastLogin: u.lastLogin || u.last_login || 'Never'
+        }));
+        setAllUsers(mapped);
+        if (typeof onUserUpdate === 'function') onUserUpdate(mapped);
+      } catch (error) {
+        console.warn('Failed to load users', error);
+        toast.error('Failed to load users');
+      }
+    };
+    loadUsers();
+  }, []);
 
   const [newUser, setNewUser] = useState({
     name: '',
@@ -172,11 +195,34 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
     'export_data'
   ];
 
-  const filteredUsers = adminUsers.filter(user => {
+  const filteredUsers = allUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    return matchesSearch && matchesRole;
+    
+    // Filter by user type
+    const matchesUserType = (() => {
+      switch (selectedUserType) {
+        case 'all':
+          return true;
+        case 'admins':
+          return ['Super Admin', 'Admin'].includes(user.role);
+        case 'hr':
+          return user.role === 'HR Manager';
+        case 'content':
+          return user.role === 'Content Manager';
+        case 'support':
+          return user.role === 'Support Agent';
+        case 'employers':
+          return user.role === 'Employer';
+        case 'job_seekers':
+          return user.role === 'Job Seeker';
+        default:
+          return true;
+      }
+    })();
+    
+    return matchesSearch && matchesRole && matchesUserType;
   });
 
   const handleAddUser = () => {
@@ -194,7 +240,7 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
       lastLogin: 'Never'
     };
 
-    setAdminUsers([...adminUsers, user]);
+    setAllUsers([...allUsers, user]);
     setNewUser({ name: '', email: '', role: '', password: '' });
     setIsAddUserOpen(false);
     toast.success('User added successfully!');
@@ -281,11 +327,11 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
 
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="users">Admin Users</TabsTrigger>
+          <TabsTrigger value="users">All Users</TabsTrigger>
           <TabsTrigger value="roles">Roles & Permissions</TabsTrigger>
         </TabsList>
 
-        {/* Admin Users Tab */}
+        {/* All Users Tab */}
         <TabsContent value="users" className="space-y-6">
           {/* Search and Filters */}
           <Card>
@@ -301,6 +347,20 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
                   />
                 </div>
                 <div className="flex gap-2">
+                  <select
+                    value={selectedUserType}
+                    onChange={(e) => setSelectedUserType(e.target.value)}
+                    className="px-3 py-2 border rounded-md bg-white"
+                    title="Filter by user type"
+                  >
+                    <option value="all">All Users</option>
+                    <option value="admins">Admins</option>
+                    <option value="hr">HR Users</option>
+                    <option value="content">Content Managers</option>
+                    <option value="support">Support Agents</option>
+                    <option value="employers">Employers</option>
+                    <option value="job_seekers">Job Seekers</option>
+                  </select>
                   <select
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value)}
@@ -386,7 +446,7 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
           {/* Users Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Admin Users ({filteredUsers.length})</CardTitle>
+              <CardTitle>All Users ({filteredUsers.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">

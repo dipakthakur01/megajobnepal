@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -30,6 +30,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../ui/textarea';
 import { apiClient } from '../../lib/api-client';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
+import companyParameterService from '../../services/companyParameterService';
 
 interface EmployerManagementNewProps {
   companies: any[];
@@ -47,6 +48,13 @@ export function EmployerManagementNew({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [verificationFilter, setVerificationFilter] = useState('all');
+  const [industryFilter, setIndustryFilter] = useState('all');
+  const DEFAULT_INDUSTRIES = [
+    'Technology','Healthcare','Finance','Education','Manufacturing','Retail',
+    'Construction','Transportation','Hospitality','Media','Government','Non-profit',
+    'Energy','Agriculture','Other'
+  ];
+  const [industryOptions, setIndustryOptions] = useState<string[]>(DEFAULT_INDUSTRIES);
   // New modal and form state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -66,6 +74,21 @@ export function EmployerManagementNew({
     verified: false,
     status: 'active'
   });
+
+  // Load industry options from service
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const items = await companyParameterService.list('industry');
+        const names = Array.isArray(items)
+          ? items.map((it: any) => (typeof it === 'string' ? it : it?.name)).filter(Boolean)
+          : [];
+        if (mounted && names.length) setIndustryOptions(names as string[]);
+      } catch {}
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   // Helpers to guard against undefined fields
   const safeString = (val: any) => (typeof val === 'string' ? val : '');
@@ -111,7 +134,8 @@ export function EmployerManagementNew({
     const matchesVerification = verificationFilter === 'all' || 
                                (verificationFilter === 'verified' && company.verified) ||
                                (verificationFilter === 'unverified' && !company.verified);
-    return matchesSearch && matchesStatus && matchesVerification;
+    const matchesIndustry = industryFilter === 'all' || industry === industryFilter;
+    return matchesSearch && matchesStatus && matchesVerification && matchesIndustry;
   });
 
   // Upload logo helper
@@ -384,7 +408,7 @@ export function EmployerManagementNew({
                     <Select value={formData.industry} onValueChange={(v) => setFormData({ ...formData, industry: v })}>
                       <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {['Technology','Healthcare','Finance','Education','Manufacturing','Retail','Construction','Transportation','Hospitality','Media','Government','Non-profit','Energy','Agriculture','Other'].map(i => (
+                        {industryOptions.map(i => (
                           <SelectItem key={i} value={i}>{i}</SelectItem>
                         ))}
                       </SelectContent>
@@ -519,6 +543,16 @@ export function EmployerManagementNew({
                     <option value="all">All Verification</option>
                     <option value="verified">Verified</option>
                     <option value="unverified">Unverified</option>
+                  </select>
+                  <select
+                    value={industryFilter}
+                    onChange={(e) => setIndustryFilter(e.target.value)}
+                    className="px-3 py-2 border rounded-md bg-white"
+                  >
+                    <option value="all">All Industries</option>
+                    {industryOptions.map(i => (
+                      <option key={i} value={i}>{i}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -792,7 +826,7 @@ export function EmployerManagementNew({
                 <Select value={formData.industry} onValueChange={(v) => setFormData({ ...formData, industry: v })}>
                   <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {['Technology','Healthcare','Finance','Education','Manufacturing','Retail','Construction','Transportation','Hospitality','Media','Government','Non-profit','Energy','Agriculture','Other'].map(i => (
+                    {industryOptions.map(i => (
                       <SelectItem key={i} value={i}>{i}</SelectItem>
                     ))}
                   </SelectContent>

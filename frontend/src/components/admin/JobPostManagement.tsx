@@ -59,6 +59,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
   const [editingCoverFile, setEditingCoverFile] = useState<File | null>(null);
   const [viewingJob, setViewingJob] = useState<any>(null);
   const [parameters] = useState(getJobParameters());
+  const [newCoverDims, setNewCoverDims] = useState<{w:number;h:number}|null>(null);
 
   // Enhanced job data with normalized tier
   const enhancedJobs = jobs.map(job => ({
@@ -88,6 +89,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
     jobLevel: '',
     skillCategory: '',
     skillName: '',
+    tagsInput: '',
     licenseRequired: false,
     deadline: '',
     featured: false,
@@ -169,45 +171,112 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
     toast.success('Job updated successfully!');
   };
 
-  const handleCreateJob = () => {
+  const handleCreateJob = async () => {
     if (!newJob.title || !newJob.company || !newJob.location) {
       toast.error('Please fill in all required fields');
       return;
     }
 
-    const job = {
-      id: Date.now().toString(),
-      ...newJob,
-      status: 'active',
-      postedDate: new Date().toISOString().split('T')[0],
-      applicationCount: 0,
-      viewCount: 0,
-      coverImageUrl: newJob.coverImage ? URL.createObjectURL(newJob.coverImage) : null
-    };
+    try {
+      const typeMap: Record<string, string> = {
+        'Full Time': 'full_time',
+        'Part Time': 'part_time',
+        'Contract': 'contract',
+        'Internship': 'internship'
+      };
+      const expMap: Record<string, string> = {
+        'Entry Level': 'entry',
+        'Mid Level': 'mid',
+        'Senior Level': 'senior',
+        'Executive': 'executive'
+      };
 
-    onJobUpdate([...jobs, job]);
-    setNewJob({
-      title: '',
-      company: '',
-      location: '',
-      description: '',
-      requirements: '',
-      salary: '',
-      tier: 'latest',
-      type: 'Full Time',
-      category: '',
-      experience: '',
-      jobLevel: '',
-      skillCategory: '',
-      skillName: '',
-      licenseRequired: false,
-      deadline: '',
-      featured: false,
-      urgent: false,
-      coverImage: null
-    });
-    setIsCreateJobOpen(false);
-    toast.success('Job created successfully!');
+      const payload: any = {
+        title: newJob.title,
+        description: newJob.description,
+        requirements: newJob.requirements
+          ? newJob.requirements.split('\n').map(r => r.trim()).filter(Boolean)
+          : [],
+        location: newJob.location,
+        company: newJob.company,
+        employment_type: typeMap[newJob.type] || 'full_time',
+        experience_level: expMap[newJob.experience] || (newJob.experience?.toLowerCase() || 'entry'),
+        tier: normalizeTier(newJob.tier) || 'latest',
+        featured: !!newJob.featured,
+        license_required: !!newJob.licenseRequired,
+        deadline: newJob.deadline || undefined,
+        skills: newJob.skillName ? [newJob.skillName] : [],
+        tags: newJob.tagsInput
+          ? newJob.tagsInput.split(',').map(t => t.trim()).filter(Boolean)
+          : []
+      };
+
+      const res = await apiClient.createJobByAdmin(payload);
+      const createdJob = (res?.job || res);
+      let coverUrl: string | null = null;
+
+      if (newJob.coverImage && createdJob?._id) {
+        try {
+          const uploadRes = await apiClient.uploadAdminJobCover(String(createdJob._id), newJob.coverImage);
+          coverUrl = uploadRes?.job?.cover_image_url || uploadRes?.upload?.secure_url || uploadRes?.upload?.url || null;
+        } catch (e: any) {
+          console.warn('Cover upload failed:', e?.message || e);
+          toast.error('Cover image upload failed');
+        }
+      }
+
+      const uiJob = {
+        id: createdJob?._id || Date.now().toString(),
+        title: createdJob?.title || newJob.title,
+        company: createdJob?.company || newJob.company,
+        location: createdJob?.location || newJob.location,
+        description: createdJob?.description || newJob.description,
+        requirements: Array.isArray(createdJob?.requirements) ? createdJob.requirements : payload.requirements,
+        tier: normalizeTier(createdJob?.tier || newJob.tier) || 'latest',
+        featured: !!(createdJob?.featured ?? newJob.featured),
+        urgent: !!newJob.urgent,
+        licenseRequired: !!(createdJob?.license_required ?? newJob.licenseRequired),
+        deadline: createdJob?.deadline || newJob.deadline,
+        status: createdJob?.status || 'active',
+        applicationCount: 0,
+        viewCount: 0,
+        coverImageUrl: coverUrl || createdJob?.cover_image_url || null,
+        tags: Array.isArray(createdJob?.tags) ? createdJob.tags : payload.tags,
+        skillName: newJob.skillName,
+        jobLevel: newJob.jobLevel
+      } as any;
+
+      onJobUpdate([...jobs, uiJob]);
+
+      // reset form
+      setNewJob({
+        title: '',
+        company: '',
+        location: '',
+        description: '',
+        requirements: '',
+        salary: '',
+        tier: 'latest',
+        type: 'Full Time',
+        category: '',
+        experience: '',
+        jobLevel: '',
+        skillCategory: '',
+        skillName: '',
+        tagsInput: '',
+        licenseRequired: false,
+        deadline: '',
+        featured: false,
+        urgent: false,
+        coverImage: null
+      });
+      setNewCoverDims(null);
+      setIsCreateJobOpen(false);
+      toast.success('Job created successfully!');
+    } catch (err: any) {
+      console.error('Create job failed:', err?.message || err);
+      toast.error('Failed to create job');
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -417,6 +486,18 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
                 </div>
               </div>
 
+              {/* Tags Input */}
+              <div className="space-y-2">
+                <Label htmlFor="tagsInput">Tags (comma-separated)</Label>
+                <Input
+                  id="tagsInput"
+                  value={newJob.tagsInput}
+                  onChange={(e) => setNewJob({ ...newJob, tagsInput: e.target.value })}
+                  placeholder="e.g. React, Remote, Senior"
+                />
+                <p className="text-xs text-gray-500">Used for filtering and search. Keep them short.</p>
+              </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="jobDescription">Job Description</Label>
                   <Textarea
@@ -463,11 +544,14 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
                           />
                         </div>
                         <p className="text-sm text-gray-600">{newJob.coverImage.name}</p>
+                        {newCoverDims && (
+                          <p className="text-xs text-gray-500">Selected size: {newCoverDims.w}x{newCoverDims.h}px • Recommended: 1200x600px • Max: 5MB</p>
+                        )}
                         <Button 
                           type="button" 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setNewJob({ ...newJob, coverImage: null })}
+                          onClick={() => { setNewJob({ ...newJob, coverImage: null }); setNewCoverDims(null); }}
                         >
                           Remove Image
                         </Button>
@@ -480,7 +564,16 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => setNewJob({ ...newJob, coverImage: e.target.files?.[0] || null })}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setNewJob({ ...newJob, coverImage: file });
+                            setNewCoverDims(null);
+                            if (file) {
+                              const img = new Image();
+                              img.onload = () => setNewCoverDims({ w: img.naturalWidth, h: img.naturalHeight });
+                              img.src = URL.createObjectURL(file);
+                            }
+                          }}
                           className="hidden"
                           id="job-cover-upload"
                         />
@@ -652,6 +745,15 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
                                   {job.jobLevel && job.skillName ? ' • ' : ''}
                                   {job.skillName ? `Skill: ${job.skillName}${job.skillCategory ? ` (${job.skillCategory})` : ''}` : ''}
                                 </p>
+                              )}
+                              {Array.isArray(job.tags) && job.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {job.tags.slice(0, 6).map((tag: string, idx: number) => (
+                                    <Badge key={idx} variant="outline" className="text-[10px]">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
                               )}
                             </div>
                           </div>

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { MapPin, Briefcase, Calendar, DollarSign, Users, Heart, Share2, Building, Clock, Bell, Upload, FileText, Eye, AlertCircle, Send, BookmarkPlus } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ShareJobModal } from '../components/ShareJobModal';
+import { slugify } from '@/utils/slug';
 
 // Job interface matching our actual structure from mockData.js
 // interface Job {
@@ -627,7 +628,7 @@ export function JobDetail({ job, companies, relatedJobs, onApply, onSave, isSave
                       <div 
                         key={relatedJob.id} 
                         className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                        onClick={() => onViewJob(relatedJob.id)}
+                        onClick={() => onViewJob(slugify(String(relatedJob.title)))}
                       >
                         <h4 className="font-medium text-sm mb-1">{relatedJob.title}</h4>
                         <p className="text-xs text-gray-600 mb-2">{relatedJob.company}</p>

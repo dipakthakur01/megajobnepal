@@ -14,6 +14,7 @@ import { MapPin, Briefcase, Calendar, DollarSign, Users, Heart, Share2, Building
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { ShareJobModal } from './ShareJobModal';
 import { useApp } from '@/pages/providers/AppProvider';
+import { normalizeMediaUrl } from '@/utils/media';
 
 // Job interface matching our actual structure from mockData.js
 interface Job {
@@ -91,9 +92,9 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
   // Helper function to get company logo with global companies fallback
   const getCompanyLogo = (job: Job): string => {
     // Primary sources on job itself
-    if ((job as any).logo) return (job as any).logo;
-    if ((job as any).coverImageUrl) return (job as any).coverImageUrl;
-    if ((job as any).companyLogo) return (job as any).companyLogo;
+    if ((job as any).logo) { const v = (job as any).logo; return normalizeMediaUrl(v) || v; }
+    if ((job as any).coverImageUrl) { const v = (job as any).coverImageUrl; return normalizeMediaUrl(v) || v; }
+    if ((job as any).companyLogo) { const v = (job as any).companyLogo; return normalizeMediaUrl(v) || v; }
 
     // Try to find company in global state by name
     const nameFromJob = (job as any).company;
@@ -107,7 +108,7 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
       if (found) {
         // Check all possible logo field variations
         const logoCandidate = found.logo_url || found.logoUrl || found.logo || found.profileImage;
-        if (logoCandidate) return logoCandidate;
+        if (logoCandidate) { const v = logoCandidate; return normalizeMediaUrl(v) || v; }
       }
     }
 

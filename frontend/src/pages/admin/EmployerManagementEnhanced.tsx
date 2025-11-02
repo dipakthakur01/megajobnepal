@@ -47,6 +47,7 @@ import {
 import { toast } from 'sonner';
 import { ImageWithFallback } from '../figma/ImageWithFallback';
 import { confirmDelete } from '../../utils/confirmDelete';
+import { normalizeMediaUrl } from '@/utils/media';
 
 interface EmployerManagementEnhancedProps {
   companies: any[];
@@ -1059,9 +1060,28 @@ export function EmployerManagementEnhanced({
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{employer.company?.name || 'No company'}</div>
-                          <div className="text-sm text-gray-500">{employer.company?.industry}</div>
+                        <div className="flex items-center gap-3">
+                          {employer.company ? (
+                            <img
+                              src={
+                                normalizeMediaUrl(
+                                  (employer.company as any).logo_url ||
+                                  (employer.company as any).logoUrl ||
+                                  (employer.company as any).logo ||
+                                  (employer.company as any).profileImage ||
+                                  (employer.company as any).company_logo
+                                ) || `https://ui-avatars.com/api/?name=${encodeURIComponent((employer.company as any).name || 'Company')}&background=random&color=fff&size=64&font-size=0.6&format=svg`
+                              }
+                              alt={(employer.company as any).name || 'Company'}
+                              className="w-8 h-8 rounded object-cover border border-gray-200"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-gray-200" />
+                          )}
+                          <div>
+                            <div className="font-medium">{employer.company?.name || 'No company'}</div>
+                            <div className="text-sm text-gray-500">{employer.company?.industry}</div>
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1487,8 +1507,20 @@ export function EmployerManagementEnhanced({
                     {selectedEmployer.company ? (
                       <>
                         <div className="flex items-center gap-2">
-                          <Building2 className="w-4 h-4 text-gray-400" />
-                          <span>{selectedEmployer.company.name}</span>
+                          <img
+                            src={
+                              normalizeMediaUrl(
+                                (selectedEmployer.company as any).logo_url ||
+                                (selectedEmployer.company as any).logoUrl ||
+                                (selectedEmployer.company as any).logo ||
+                                (selectedEmployer.company as any).profileImage ||
+                                (selectedEmployer.company as any).company_logo
+                              ) || `https://ui-avatars.com/api/?name=${encodeURIComponent((selectedEmployer.company as any).name || 'Company')}&background=random&color=fff&size=64&font-size=0.6&format=svg`
+                            }
+                            alt={(selectedEmployer.company as any).name || 'Company'}
+                            className="w-10 h-10 rounded object-cover border border-gray-200"
+                          />
+                          <span className="font-medium">{selectedEmployer.company.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-gray-400" />

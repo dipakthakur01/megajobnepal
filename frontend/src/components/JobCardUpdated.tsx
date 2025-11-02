@@ -9,6 +9,8 @@ import { ShareJobModal } from './ShareJobModal';
 import { SimpleShareModal } from './SimpleShareModal';
 import { toast } from 'sonner';
 import { useApp } from '@/pages/providers/AppProvider';
+import { normalizeMediaUrl } from '@/utils/media';
+import { normalizeTier, getTierLabel } from '../utils/tier';
 import { useImageUpdate } from '../context/ImageUpdateContext';
 
 interface JobCardProps {
@@ -30,7 +32,7 @@ export const JobCardUpdated = React.memo(function JobCardUpdated({ job, onViewJo
   const [showShareModal, setShowShareModal] = useState(false);
   const { siteSettings, companies: globalCompanies = [] } = useApp();
   const { imageUpdateTrigger } = useImageUpdate();
-  const badgeLabel = siteSettings?.jobBadgeLabel || 'mega_job';
+  const badgeLabel = getTierLabel(job.tier, siteSettings?.tierConfig);
 
   const handleSaveJob = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -130,7 +132,7 @@ export const JobCardUpdated = React.memo(function JobCardUpdated({ job, onViewJo
   // Get company job count from the extended job object
   const companyJobCount = (job as any).companyJobCount || 1;
 
-  // Resolve company logo with consistent priority across pages
+  // Resolve job/company image with priority aligned to Home page
   const getCompanyLogo = (jobData: Job): string => {
     const normalizeName = (val: string) => {
       if (!val) return '';
@@ -150,26 +152,19 @@ export const JobCardUpdated = React.memo(function JobCardUpdated({ job, onViewJo
 
     const normalizedTarget = normalizeName(String(nameFromJob || ''));
 
-    // 1) Prefer global company cover image for consistency across Home and Listings
+    // 1) Prefer global company cover image (matches Home page visuals)
     if (normalizedTarget && Array.isArray(globalCompanies) && globalCompanies.length > 0) {
       const found = (globalCompanies as any[]).find(c => {
         const nm = normalizeName(String(c.name || c.companyName || ''));
         return nm === normalizedTarget;
       });
       if (found && (found.coverImageUrl || found.cover_image_url)) {
-        return found.coverImageUrl || found.cover_image_url;
+        const v = found.coverImageUrl || found.cover_image_url;
+        return normalizeMediaUrl(v) || v;
       }
     }
 
-    // 2) Then use job-specific cover image if present
-    if ((jobData as any).coverImageUrl) return (jobData as any).coverImageUrl;
-    if ((jobData as any).cover_image_url) return (jobData as any).cover_image_url;
-
-    // 3) Then explicit logo fields on the job
-    if ((jobData as any).logo) return (jobData as any).logo;
-    if ((jobData as any).companyLogo) return (jobData as any).companyLogo;
-
-    // 4) Fallback to any logo/profile image from matching global company
+    // 2) Fallback to any logo/profile image from matching global company
     if (normalizedTarget && Array.isArray(globalCompanies) && globalCompanies.length > 0) {
       const found = (globalCompanies as any[]).find(c => {
         const nm = normalizeName(String(c.name || c.companyName || ''));
@@ -180,8 +175,20 @@ export const JobCardUpdated = React.memo(function JobCardUpdated({ job, onViewJo
         (found.company_logo) || (found.companyLogo) ||
         (found.profileImage)
       );
-      if (logoCandidate) return logoCandidate as string;
+      if (logoCandidate) {
+        const v = logoCandidate as string;
+        return normalizeMediaUrl(v) || v;
+      }
     }
+    
+    // 3) Then explicit logo fields on the job
+    if ((jobData as any).company_logo) { const v = (jobData as any).company_logo; return normalizeMediaUrl(v) || v; }
+    if ((jobData as any).companyLogo) { const v = (jobData as any).companyLogo; return normalizeMediaUrl(v) || v; }
+    if ((jobData as any).logo) { const v = (jobData as any).logo; return normalizeMediaUrl(v) || v; }
+
+    // 4) Then job-specific cover image if present
+    if ((jobData as any).coverImageUrl) { const v = (jobData as any).coverImageUrl; return normalizeMediaUrl(v) || v; }
+    if ((jobData as any).cover_image_url) { const v = (jobData as any).cover_image_url; return normalizeMediaUrl(v) || v; }
 
     // 5) Placeholder based on company name
     if (nameFromJob) {

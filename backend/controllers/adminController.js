@@ -828,7 +828,9 @@ const createJobByAdmin = async (req, res) => {
       featured,
       deadline,
       status,
-      license_required
+      license_required,
+      skills,
+      tags
     } = req.body;
 
     if (!title || !description || !location) {
@@ -836,6 +838,14 @@ const createJobByAdmin = async (req, res) => {
     }
 
     const normalizedTier = tier === 'mega_job' ? 'megajob' : tier;
+
+    // Normalize skills/tags to arrays of strings
+    const normalizedSkills = Array.isArray(skills)
+      ? skills.filter(s => typeof s === 'string' && s.trim()).map(s => s.trim())
+      : (typeof skills === 'string' ? skills.split(',').map(s => s.trim()).filter(Boolean) : undefined);
+    const normalizedTags = Array.isArray(tags)
+      ? tags.filter(t => typeof t === 'string' && t.trim()).map(t => t.trim())
+      : (typeof tags === 'string' ? tags.split(',').map(t => t.trim()).filter(Boolean) : undefined);
 
     const newJob = {
       title,
@@ -856,6 +866,8 @@ const createJobByAdmin = async (req, res) => {
       license_required: !!license_required,
       deadline: deadline ? new Date(deadline) : undefined,
       status: status || 'active',
+      skills: normalizedSkills,
+      tags: normalizedTags,
       // Mark as approved so it appears on public listings and dashboard counts
       approval_status: 'approved',
       approved_at: new Date().toISOString(),
@@ -884,10 +896,17 @@ const updateJobByAdmin = async (req, res) => {
   try {
     const db = getDB();
     const { id } = req.params;
-    const allowed = ['title', 'description', 'requirements', 'location', 'category_id', 'company_id', 'company', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'tier', 'featured', 'deadline', 'status', 'license_required'];
+    const allowed = ['title', 'description', 'requirements', 'location', 'category_id', 'company_id', 'company', 'employment_type', 'experience_level', 'salary_min', 'salary_max', 'tier', 'featured', 'deadline', 'status', 'license_required', 'skills', 'tags'];
     const update = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) update[key] = req.body[key];
+    }
+    // Normalize skills/tags when provided as comma-separated strings
+    if (typeof update.skills === 'string') {
+      update.skills = update.skills.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    if (typeof update.tags === 'string') {
+      update.tags = update.tags.split(',').map(t => t.trim()).filter(Boolean);
     }
     if (update.deadline) {
       update.deadline = new Date(update.deadline);
@@ -961,7 +980,7 @@ const createAdminUser = async (req, res) => {
     const db = getDB();
     const { email, name, full_name, password, role } = req.body || {};
 
-    const allowedRoles = ['admin', 'hr', 'super_admin'];
+    const allowedRoles = ['admin', 'hr', 'super_admin', 'content', 'content_manager', 'support', 'support_agent'];
     const normalizedRole = (role ? String(role).toLowerCase() : 'admin');
     if (!allowedRoles.includes(normalizedRole)) {
       return res.status(400).json({ error: `Role must be one of: ${allowedRoles.join(', ')}` });
@@ -993,6 +1012,8 @@ const createAdminUser = async (req, res) => {
       full_name: displayName,
       user_type: normalizedRole,
       status: 'active',
+      // initialize permissions for staff accounts
+      permissions: normalizedRole === 'super_admin' ? ['all_permissions'] : [],
       password: passwordHash,
       created_at: new Date(),
       updated_at: new Date()
@@ -1056,7 +1077,7 @@ const listAdminUsers = async (req, res) => {
     const db = getDB();
     const { page = 1, limit = 10, q } = req.query || {};
 
-    const allowedRoles = ['admin', 'hr', 'super_admin'];
+    const allowedRoles = ['admin', 'hr', 'super_admin', 'content', 'content_manager', 'support', 'support_agent'];
     const filter = { user_type: { $in: allowedRoles } };
 
     if (q && String(q).trim()) {
@@ -1104,7 +1125,7 @@ const deleteAdminUser = async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    if (!['admin', 'super_admin', 'hr'].includes(String(user.user_type))) {
+    if (!['admin', 'super_admin', 'hr', 'content', 'content_manager', 'support', 'support_agent'].includes(String(user.user_type))) {
       return res.status(400).json({ error: 'Only staff accounts can be deleted via this endpoint' });
     }
     const result = await db.collection('users').deleteOne({ _id: id });
@@ -1147,7 +1168,7 @@ const updateUserRole = async (req, res) => {
     const { id } = req.params;
     const { role } = req.body || {};
 
-    const allowedRoles = ['admin', 'hr', 'super_admin'];
+    const allowedRoles = ['admin', 'hr', 'super_admin', 'content', 'content_manager', 'support', 'support_agent'];
     if (!allowedRoles.includes(String(role))) {
       return res.status(400).json({ error: `Role must be one of: ${allowedRoles.join(', ')}` });
     }
@@ -1234,6 +1255,78 @@ const resetCompanies = async (req, res) => {
   }
 };
 
+// Permissions catalog and management
+const PERMISSIONS_CATALOG = [
+  'all_permissions',
+  'manage_users',
+  'manage_jobs',
+  'manage_companies',
+  'manage_applications',
+  'manage_payments',
+  'view_reports',
+  'manage_content',
+  'manage_blogs',
+  'manage_site_info',
+  'manage_support_tickets',
+  'view_users',
+  'view_applications',
+  'export_data'
+];
+
+const listPermissionsCatalog = async (req, res) => {
+  try {
+    return res.json({ permissions: PERMISSIONS_CATALOG });
+  } catch (error) {
+    console.error('List permissions error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const getUserPermissions = async (req, res) => {
+  try {
+    const db = getDB();
+    const { id } = req.params;
+    const user = await db.collection('users').findOne({ _id: id }, { projection: { password: 0 } });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const role = user.user_type;
+    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+    return res.json({ user: { _id: user._id, email: user.email, full_name: user.full_name || user.name || '', role }, permissions });
+  } catch (error) {
+    console.error('Get user permissions error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const updateUserPermissions = async (req, res) => {
+  try {
+    const db = getDB();
+    const { id } = req.params;
+    const { permissions } = req.body || {};
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ error: 'permissions must be an array of strings' });
+    }
+    // Validate permissions against catalog
+    const invalid = permissions.filter(p => !PERMISSIONS_CATALOG.includes(String(p)));
+    if (invalid.length > 0) {
+      return res.status(400).json({ error: `Invalid permissions: ${invalid.join(', ')}` });
+    }
+    const result = await db.collection('users').updateOne(
+      { _id: id },
+      { $set: { permissions, updated_at: new Date() } }
+    );
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const user = await db.collection('users').findOne({ _id: id }, { projection: { password: 0 } });
+    return res.json({ message: 'Permissions updated successfully', user, permissions });
+  } catch (error) {
+    console.error('Update user permissions error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -1265,5 +1358,8 @@ module.exports = {
   updateJobCoverByAdmin,
   updateCompanyLogoByAdmin,
   resetCompanies,
-  resetEmployers
+  resetEmployers,
+  listPermissionsCatalog,
+  getUserPermissions,
+  updateUserPermissions
  }

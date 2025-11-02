@@ -191,11 +191,10 @@ export function CompanyDetailPage({
   const normalizeAssetUrl = (url: string): string => {
     if (!url) return '';
     const u = String(url);
-    // Rewrite localhost:3001 uploads to same-origin proxied path
-    const rewritten = u
-      .replace(/^https?:\/\/localhost:3001(\/uploads\/.*)$/i, '$1')
-      .replace(/^https?:\/\/127\.0\.0\.1:3001(\/uploads\/.*)$/i, '$1');
-    if (rewritten.startsWith('/uploads')) return rewritten;
+    // Rewrite localhost uploads (any dev port) to same-origin proxied path
+    const m = u.match(/^https?:\/\/(?:localhost|127\.0\.0\.1):\d+(\/uploads\/.*)$/i);
+    if (m) return m[1];
+    if (u.startsWith('/uploads')) return u;
     return u;
   };
 

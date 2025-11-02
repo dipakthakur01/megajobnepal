@@ -31,6 +31,7 @@ import { EmergencyApp } from './components/EmergencyApp';
 import { ForgotPasswordForm } from './components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from './components/auth/ResetPasswordForm';
 import { ResetPasswordWithOtpForm } from './components/auth/ResetPasswordWithOtpForm';
+import { slugify } from './utils/slug';
 
 // Admin pages
 import AdminLoginPage from './pages/admin/login/page';
@@ -268,7 +269,11 @@ const AppRouter = () => {
           <Route path="/" element={
             <Home 
               onNavigate={(page: string) => navigate(`/${page}`)}
-              onViewJob={(id: string) => navigate(`/jobs/${id}`)}
+              onViewJob={(id: string) => {
+                const target = jobs.find(j => j.id === id);
+                const slug = target ? slugify(String(target.title)) : id;
+                navigate(`/jobs/${slug}`);
+              }}
               onViewCompany={(name: string) => navigate(`/company/${encodeURIComponent(name)}`)}
               filters={{
                 location: '',
@@ -286,7 +291,11 @@ const AppRouter = () => {
           } />
           <Route path="/jobs" element={
             <Jobs 
-              onViewJob={(id: string) => navigate(`/jobs/${id}`)}
+              onViewJob={(id: string) => {
+                const target = jobs.find(j => j.id === id);
+                const slug = target ? slugify(String(target.title)) : id;
+                navigate(`/jobs/${slug}`);
+              }}
               onViewCompany={(name: string) => navigate(`/company/${encodeURIComponent(name)}`)}
               onSaveJob={(id: string) => handleSaveJob(id)}
               onApply={(id: string) => handleApplyJob(id)}
@@ -297,7 +306,11 @@ const AppRouter = () => {
           } />
           <Route path="/megajobs" element={
             <Jobs 
-              onViewJob={(id: string) => navigate(`/jobs/${id}`)}
+              onViewJob={(id: string) => {
+                const target = jobs.find(j => j.id === id);
+                const slug = target ? slugify(String(target.title)) : id;
+                navigate(`/jobs/${slug}`);
+              }}
               onViewCompany={(name: string) => navigate(`/company/${encodeURIComponent(name)}`)}
               onSaveJob={(id: string) => handleSaveJob(id)}
               onApply={(id: string) => handleApplyJob(id)}
@@ -308,6 +321,7 @@ const AppRouter = () => {
             />
           } />
           <Route path="/jobs/:id" element={<JobDetailsRoute />} />
+          <Route path="/jobs/jobs/:id" element={<JobDetailsRoute />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/blogs" element={<BlogsPage />} />
@@ -316,7 +330,11 @@ const AppRouter = () => {
             <CompanyDetailPage 
               companyName=""
               jobs={[]}
-              onViewJob={(id: string) => navigate(`/jobs/${id}`)}
+              onViewJob={(id: string) => {
+                const target = jobs.find(j => j.id === id);
+                const slug = target ? slugify(String(target.title)) : id;
+                navigate(`/jobs/${slug}`);
+              }}
               onSaveJob={(id: string) => handleSaveJob(id)}
               savedJobs={savedJobs}
               onNavigate={(path: string) => navigate(path)}
@@ -324,7 +342,11 @@ const AppRouter = () => {
           } />
           <Route path="/jobs/map" element={
             <JobMapView 
-              onViewJob={(id: string) => navigate(`/jobs/${id}`)}
+              onViewJob={(id: string) => {
+                const target = jobs.find(j => j.id === id);
+                const slug = target ? slugify(String(target.title)) : id;
+                navigate(`/jobs/${slug}`);
+              }}
               onSaveJob={(id: string) => handleSaveJob(id)}
               savedJobs={savedJobs}
               isUserLoggedIn={isAuthenticated}
@@ -544,10 +566,12 @@ const JobDetailsRoute: React.FC = () => {
   const { jobs } = useData();
   const { currentUser, applications, savedJobs, handleApplyJob, handleSaveJob } = useApp();
 
-  const job = jobs.find((j: any) => j.id === id);
-  const relatedJobs = jobs.filter((j: any) => j.id !== id).slice(0, 6);
-  const isSaved = id ? savedJobs.includes(id) : false;
-  const hasApplied = id && currentUser ? applications.some(a => a.jobId === id && a.userId === currentUser.id) : false;
+  // Support both UUID IDs and human-readable slugs in the URL
+  const job = jobs.find((j: any) => j.id === id || slugify(String(j.title)) === id);
+  const jobId = job?.id || id;
+  const relatedJobs = jobs.filter((j: any) => j.id !== jobId).slice(0, 6);
+  const isSaved = jobId ? savedJobs.includes(jobId) : false;
+  const hasApplied = jobId && currentUser ? applications.some(a => a.jobId === jobId && a.userId === currentUser.id) : false;
 
   return (
     <JobDetails 
@@ -557,7 +581,11 @@ const JobDetailsRoute: React.FC = () => {
       onSave={(jobId: string) => handleSaveJob(jobId)}
       isSaved={!!isSaved}
       hasApplied={!!hasApplied}
-      onViewJob={(jobId: string) => navigate(`/jobs/${jobId}`)}
+      onViewJob={(jobId: string) => {
+        const target = jobs.find((j: any) => j.id === jobId);
+        const slug = target ? slugify(String(target.title)) : jobId;
+        navigate(`/jobs/${slug}`);
+      }}
       currentUser={currentUser}
     />
   );

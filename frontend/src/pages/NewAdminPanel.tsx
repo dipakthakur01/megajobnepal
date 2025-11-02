@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { AdminDashboardNew } from './admin/AdminDashboardNew';
 import { SiteManagement } from './admin/SiteManagement';
 import { TrustedCompaniesManagement } from './admin/TrustedCompaniesManagement';
-import { RoleManagement } from './admin/RoleManagement';
 import { UserManagement } from './admin/UserManagement';
 import { EmployerManagementNew } from './admin/EmployerManagementNew';
 import { JobPostManagement } from './admin/JobPostManagement';
@@ -41,8 +40,6 @@ type AdminSection =
   | 'dashboard' 
   | 'site-management'
   | 'trusted-companies' 
-  | 'role-management'
-  | 'admin-management'
   | 'user-management'
   | 'employer-management' 
   | 'job-post-management'
@@ -111,14 +108,16 @@ export function NewAdminPanel({
   };
 
   // Statistics for navigation badges
+  const jobSeekerCount = users.filter(u => u?.type === 'jobseeker' || u?.user_type === 'job_seeker').length;
+  const employerCount = companies.length;
   const stats = {
     totalJobs: jobs.length,
-    pendingJobs: jobs.filter(job => job.status === 'pending').length || 12,
-    totalUsers: users.length,
-    pendingApplications: applications.filter(app => app.status === 'pending').length || 24,
+    pendingJobs: jobs.filter(job => job.status === 'pending' || (job as any)?.approvalStatus === 'pending').length,
+    totalUsers: jobSeekerCount + employerCount,
+    pendingApplications: applications.filter(app => (app as any)?.status === 'pending').length,
     totalCompanies: companies.length,
-    verifiedEmployers: companies.filter(c => c.verified).length || 45,
-    unverifiedEmployers: companies.filter(c => !c.verified).length || 22
+    verifiedEmployers: companies.filter(c => !!c.verified).length,
+    unverifiedEmployers: companies.filter(c => !c.verified).length
   };
 
   const navigationItems = [
@@ -148,28 +147,14 @@ export function NewAdminPanel({
       badge: null 
     },
     
-    // Role Management  
-    { 
-      id: 'role-management', 
-      label: 'Roles', 
-      icon: Shield, 
-      section: 'Role Management',
-      badge: null 
-    },
     
-    // Admin Management
-    { 
-      id: 'admin-management', 
-      label: 'Admin', 
-      icon: Users, 
-      section: 'Admin Management',
-      badge: users.filter(u => u.type === 'admin').length.toString()
-    },
+    
+    // Admin Management removed per request
     
     // User Management
     { 
       id: 'user-management', 
-      label: 'Users Admin', 
+      label: 'User Management', 
       icon: Users, 
       section: 'User Management',
       badge: stats.totalUsers.toString() 
@@ -265,10 +250,8 @@ export function NewAdminPanel({
         return <SiteManagement />;
       case 'trusted-companies':
         return <TrustedCompaniesManagement />;
-      case 'role-management':
-        return <RoleManagement users={users} onUserUpdate={onUserUpdate} />;
-      case 'admin-management':
-        return <UserManagement users={users.filter(u => u.type === 'admin')} onUserUpdate={onUserUpdate} />;
+      
+      // admin-management removed
       case 'user-management':
         return <UserManagement users={users} onUserUpdate={onUserUpdate} />;
       case 'employer-management':
@@ -291,7 +274,7 @@ export function NewAdminPanel({
       case 'job-parameters':
         return <JobParameterManagement />;
       case 'company-parameters':
-        return <CompanyParameterManagement />;
+        return <CompanyParameterManagement companies={companies} jobs={jobs} applications={applications} />;
       case 'payment-management':
         return <PaymentManagement jobs={jobs} companies={companies} />;
       case 'reports':

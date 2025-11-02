@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { normalizeTier } from '../../utils/tier';
@@ -20,6 +20,7 @@ import {
   CreditCard,
   Shield
 } from 'lucide-react';
+import companyParameterService from '../../services/companyParameterService';
 
 interface AdminDashboardNewProps {
   jobs: any[];
@@ -31,6 +32,22 @@ interface AdminDashboardNewProps {
 }
 
 export function AdminDashboardNew({ jobs, users, applications, companies, stats, onNavigateToSection }: AdminDashboardNewProps) {
+  const [industryList, setIndustryList] = useState<string[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res: any = await companyParameterService.list('industry');
+        const items = Array.isArray(res?.items) ? res.items : (Array.isArray(res) ? res : []);
+        const names = items.map((it: any) => (typeof it === 'string' ? it : it?.name)).filter(Boolean);
+        if (mounted) setIndustryList(names as string[]);
+      } catch {
+        // If parameters fail to load, keep list empty and allow graceful fallbacks
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
   // Derive dashboard statistics from live data with safe fallbacks
   const megaJobs = jobs.filter(j => normalizeTier(j?.tier) === 'megajob').length;
   const premiumJobs = jobs.filter(j => normalizeTier(j?.tier) === 'premium').length;
@@ -39,10 +56,24 @@ export function AdminDashboardNew({ jobs, users, applications, companies, stats,
   const latestJobs = jobs.length;
   const newspaperJobs = jobs.filter(j => normalizeTier(j?.tier) === 'newspaper' || j?.source === 'newspaper').length;
 
-  const totalAdmins = users.filter(u => u?.type === 'admin' || u?.type === 'super_admin').length;
-  const totalUsers = users.length;
-  const totalEmployers = companies?.length ?? 0; // use companies for employer management
-  const totalJobSeekers = users.filter(u => u?.type === 'jobseeker').length;
+  const asLower = (v: any) => String(v || '').toLowerCase();
+  const totalAdmins = users.filter(u => {
+    const t1 = asLower((u as any)?.type);
+    const t2 = asLower((u as any)?.user_type);
+    const staff = ['super_admin','admin'];
+    return staff.includes(t1) || staff.includes(t2);
+  }).length;
+  const jobSeekerCount = users.filter(u => u?.type === 'jobseeker' || u?.user_type === 'job_seeker').length;
+  const employerCount = companies?.length ?? 0; // use companies for employer management
+  // Users tile now shows HR, Content, and Support accounts
+  const totalUsers = users.filter(u => {
+    const t1 = asLower((u as any)?.type);
+    const t2 = asLower((u as any)?.user_type);
+    const nonAdminStaff = ['hr','content','content_manager','support','support_agent'];
+    return nonAdminStaff.includes(t1) || nonAdminStaff.includes(t2);
+  }).length;
+  const totalJobSeekers = jobSeekerCount;
+  const totalEmployers = employerCount;
 
   const verifiedEmployers = companies?.filter(c => !!c?.verified).length ?? 0;
   const unverifiedUsers = users.filter(u => (u as any)?.isVerified === false).length; // will be 0 if not present
@@ -76,15 +107,52 @@ export function AdminDashboardNew({ jobs, users, applications, companies, stats,
   }));
 
   // Compute industry distribution (top 5 categories)
+  const toLower = (s: any) => String(s || '').trim().toLowerCase();
   const industryMap: Record<string, number> = {};
+  // Build company lookup by id and name -> industry
+  const companyById: Record<string, string> = {};
+  const companyByName: Record<string, string> = {};
+  for (const c of (companies || [])) {
+    const id = String((c as any)?._id || (c as any)?.id || '');
+    const nm = toLower((c as any)?.name || (c as any)?.company_name || (c as any)?.title);
+    const ind = (c as any)?.industry || (c as any)?.category || '';
+    if (id) companyById[id] = ind;
+    if (nm) companyByName[nm] = ind;
+  }
+
+  const isValidIndustry = (name: string) => {
+    if (!name) return false;
+    if (industryList.length === 0) return true; // no server list loaded, allow
+    return industryList.some(v => toLower(v) === toLower(name));
+  };
+
   for (const j of jobs) {
-    const key = j?.category ?? 'General';
-    industryMap[key] = (industryMap[key] ?? 0) + 1;
+    const companyName = toLower((j as any)?.company?.name || (j as any)?.company);
+    const companyId = String((j as any)?.company_id || (j as any)?.companyId || '');
+    let key = '';
+    if (companyName && companyByName[companyName]) key = companyByName[companyName];
+    else if (companyId && companyById[companyId]) key = companyById[companyId];
+    else if ((j as any)?.category && isValidIndustry((j as any)?.category)) key = (j as any)?.category;
+
+    // Only count if we have a real industry name; skip generic/empty
+    if (key && isValidIndustry(key)) {
+      industryMap[key] = (industryMap[key] ?? 0) + 1;
+    }
   }
   const industryJobs = Object.entries(industryMap)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([industry, jobCount]) => ({ industry, jobCount }));
+
+  // Admins by role counts
+  // helper already defined above
+  const roleCounts = {
+    superAdmin: users.filter(u => asLower((u as any)?.user_type) === 'super_admin').length,
+    admin: users.filter(u => asLower((u as any)?.user_type) === 'admin').length,
+    hrManager: users.filter(u => ['hr', 'hr_manager'].includes(asLower((u as any)?.user_type))).length,
+    contentManager: users.filter(u => ['content', 'content_manager'].includes(asLower((u as any)?.user_type))).length,
+    supportAgent: users.filter(u => ['support', 'support_agent'].includes(asLower((u as any)?.user_type))).length,
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -173,11 +241,11 @@ export function AdminDashboardNew({ jobs, users, applications, companies, stats,
       {/* User Statistics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Admin"
+          title="Admins"
           count={dashboardStats.totalAdmins}
-          icon={Users}
-          gradient="bg-gradient-to-br from-red-500 to-red-600"
-          textColor="text-red-600"
+          icon={Shield}
+          gradient="bg-gradient-to-br from-indigo-500 to-indigo-600"
+          textColor="text-indigo-600"
           onClick={onNavigateToSection}
           section="role-management"
         />
@@ -188,7 +256,7 @@ export function AdminDashboardNew({ jobs, users, applications, companies, stats,
           gradient="bg-gradient-to-br from-blue-500 to-blue-600"
           textColor="text-blue-600"
           onClick={onNavigateToSection}
-          section="user-management"
+          section="role-management"
         />
         <StatCard
           title="Employers"
@@ -352,6 +420,65 @@ export function AdminDashboardNew({ jobs, users, applications, companies, stats,
                   ))}
                 </tbody>
               </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Admins by Role */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-medium">Admins by Role</CardTitle>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onNavigateToSection && onNavigateToSection('role-management')}
+                className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm">Super Admin</span>
+                </div>
+                <Badge variant="outline" className="text-xs">{roleCounts.superAdmin}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-indigo-600" />
+                  <span className="text-sm">Admin</span>
+                </div>
+                <Badge variant="outline" className="text-xs">{roleCounts.admin}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm">HR Manager</span>
+                </div>
+                <Badge variant="outline" className="text-xs">{roleCounts.hrManager}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-yellow-600" />
+                  <span className="text-sm">Content Manager</span>
+                </div>
+                <Badge variant="outline" className="text-xs">{roleCounts.contentManager}</Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-red-600" />
+                  <span className="text-sm">Support Agent</span>
+                </div>
+                <Badge variant="outline" className="text-xs">{roleCounts.supportAgent}</Badge>
+              </div>
             </div>
           </CardContent>
         </Card>

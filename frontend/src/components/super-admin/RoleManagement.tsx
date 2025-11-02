@@ -57,11 +57,14 @@ interface RoleManagementProps {
 export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState('all');
+  // New: filter by user type (departments) and default to all users
+  const [selectedUserType, setSelectedUserType] = useState('all');
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
   const [isEditRoleOpen, setIsEditRoleOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<Role | null>(null);
+  const [permissionsCatalog, setPermissionsCatalog] = useState<string[]>([]);
 
   // Mock roles data
   const [roles, setRoles] = useState<Role[]>([
@@ -140,22 +143,49 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
     'view_applications',
     'export_data'
   ];
+  const allPermissions = permissionsCatalog.length ? permissionsCatalog : availablePermissions;
 
   const mapRoleLabel = (user_type?: string) => {
-    if (!user_type) return 'Admin';
-    return user_type === 'super_admin' ? 'Super Admin' : 'Admin';
+    const t = String(user_type || '').toLowerCase();
+    if (t === 'super_admin') return 'Super Admin';
+    if (t === 'admin') return 'Admin';
+    if (t === 'hr') return 'HR Manager';
+    if (t === 'content' || t === 'content_manager') return 'Content Manager';
+    if (t === 'support' || t === 'support_agent') return 'Support Agent';
+    return 'Admin';
   };
 
-  const toBackendRole = (label: string) => {
-    const normalized = (label || '').toLowerCase();
-    return normalized.includes('super') ? 'super_admin' : 'admin';
-  };
+  // removed duplicate toBackendRole; single definition exists later
 
   useEffect(() => {
-    const loadAdminUsers = async () => {
+    const loadUsers = async () => {
       try {
-        const res = await apiClient.getAdminUsers({ limit: 100 });
-        const items = Array.isArray(res?.users) ? res.users : [];
+        // Fetch staff-only and all users in parallel, then merge staff categories
+        const [staffRes, allRes] = await Promise.all([
+          apiClient.getAdminUsers({ limit: 500 }).catch(() => null),
+          apiClient.getAllUsers({ limit: 1000 }).catch(() => null),
+        ]);
+
+        const staffRaw = staffRes
+          ? (Array.isArray((staffRes as any)?.users) ? (staffRes as any).users : (Array.isArray(staffRes) ? (staffRes as any) : []))
+          : [];
+        const allRaw = allRes
+          ? (Array.isArray((allRes as any)?.users) ? (allRes as any).users : (Array.isArray(allRes) ? (allRes as any) : []))
+          : [];
+
+        // Include all staff roles shown in dropdown: super_admin, admin, hr, content manager, support
+        const staffTypes = ['super_admin', 'admin', 'hr', 'content', 'content_manager', 'support', 'support_agent'];
+        const filteredFromAll = allRaw.filter((u: any) => staffTypes.includes(String(u.user_type).toLowerCase()));
+
+        // Merge and dedupe by _id/id/email
+        const merged = [...staffRaw, ...filteredFromAll];
+        const uniqueMap = new Map<string, any>();
+        for (const u of merged) {
+          const key = String(u._id || u.id || u.email || Math.random()).toLowerCase();
+          if (!uniqueMap.has(key)) uniqueMap.set(key, u);
+        }
+        const items = Array.from(uniqueMap.values());
+
         const mapped: User[] = items.map((u: any) => ({
           id: u._id || u.id || String(Date.now()),
           name: u.full_name || u.name || '',
@@ -171,15 +201,84 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
         toast.error('Failed to load admin users');
       }
     };
-    loadAdminUsers();
+    loadUsers();
   }, []);
+
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        const res = await apiClient.getPermissionsCatalog();
+        const perms = Array.isArray(res?.permissions) ? res.permissions : [];
+        setPermissionsCatalog(perms);
+      } catch (error) {
+        console.warn('Failed to load permissions catalog', error);
+      }
+    };
+    loadPermissions();
+  }, []);
+
+  // duplicate mapRoleLabel removed (see top-level mapRoleLabel)
+
+  // Function to convert frontend role back to backend user_type
+  const toBackendRole = (role: string): string => {
+    switch (role) {
+      case 'Super Admin':
+        return 'super_admin';
+      case 'Admin':
+        return 'admin';
+      case 'HR Manager':
+        return 'hr';
+      case 'Content Manager':
+        return 'content';
+      case 'Support Agent':
+        return 'support';
+      default:
+        return role.toLowerCase();
+    }
+  };
 
   const filteredUsers = adminUsers.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = selectedRole === 'all' || user.role === selectedRole;
-    return matchesSearch && matchesRole;
+
+    // Map department/user-type categories to role labels (admin-level only)
+    const matchesUserType = (() => {
+      switch (selectedUserType) {
+        case 'all':
+          return true;
+        case 'admins':
+          return user.role === 'Admin' || user.role === 'Super Admin';
+        case 'hr':
+          return user.role === 'HR Manager';
+        case 'content':
+          return user.role === 'Content Manager';
+        case 'support':
+          return user.role === 'Support Agent';
+        default:
+          return true;
+      }
+    })();
+
+    return matchesSearch && matchesRole && matchesUserType;
   });
+
+  // Dynamic header label based on selected user type
+  const getUserTypeHeader = (): string => {
+    switch (selectedUserType) {
+      case 'admins':
+        return 'Admin Users';
+      case 'hr':
+        return 'HR Users';
+      case 'content':
+        return 'Content Managers';
+      case 'support':
+        return 'Support Agents';
+      case 'all':
+      default:
+        return 'All Users';
+    }
+  };
 
   const handleAddUser = async () => {
     if (!newUser.name || !newUser.email || !newUser.role || !newUser.password) {
@@ -187,22 +286,21 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
       return;
     }
     try {
+      const desiredRole = toBackendRole(newUser.role);
       const created = await apiClient.createAdminUser({
         email: newUser.email,
         password: newUser.password,
         full_name: newUser.name,
+        role: desiredRole,
       });
       const admin = created?.admin;
       const id = admin?._id || admin?.id;
-      const desiredRole = toBackendRole(newUser.role);
-      if (id && desiredRole !== 'admin') {
-        await apiClient.updateUserRole(String(id), desiredRole);
-      }
+
       const user: User = {
         id: String(id || Date.now()),
         name: admin?.full_name || newUser.name,
         email: admin?.email || newUser.email,
-        role: desiredRole === 'super_admin' ? 'Super Admin' : 'Admin',
+        role: mapRoleLabel(desiredRole),
         status: 'active',
         lastLogin: 'Never'
       };
@@ -219,11 +317,18 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
   };
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [editUser, setEditUser] = useState({ name: '', email: '', role: '', password: '' });
+  const [editUser, setEditUser] = useState({ name: '', email: '', role: '', password: '', permissions: [] as string[] });
 
-  const openEditUser = (user: User) => {
+  const openEditUser = async (user: User) => {
     setSelectedUser(user);
-    setEditUser({ name: user.name, email: user.email, role: user.role, password: '' });
+    setEditUser({ name: user.name, email: user.email, role: user.role, password: '', permissions: [] });
+    try {
+      const res = await apiClient.getUserPermissions(user.id);
+      const perms = Array.isArray(res?.permissions) ? res.permissions : [];
+      setEditUser(prev => ({ ...prev, permissions: perms }));
+    } catch (error) {
+      console.warn('Failed to fetch user permissions', error);
+    }
     setIsEditUserOpen(true);
   };
 
@@ -245,6 +350,10 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
       if (editUser.password && editUser.password.trim().length >= 6) {
         await apiClient.resetUserPassword(id, editUser.password.trim());
       }
+      // Update permissions
+      if (Array.isArray(editUser.permissions)) {
+        await apiClient.updateUserPermissions(id, editUser.permissions);
+      }
 
       // Reflect in UI
       setAdminUsers(prev => prev.map(u => (
@@ -259,7 +368,7 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
       toast.success('User updated successfully');
       setIsEditUserOpen(false);
       setSelectedUser(null);
-      setEditUser({ name: '', email: '', role: '', password: '' });
+      setEditUser({ name: '', email: '', role: '', password: '', permissions: [] });
     } catch (error) {
       console.error('Update admin failed', error);
       const message = error instanceof Error ? error.message : 'Failed to update admin user';
@@ -382,6 +491,19 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
                   />
                 </div>
                 <div className="flex gap-2">
+                  {/* New: User Type (department) dropdown next to Admin Users */}
+                  <select
+                    value={selectedUserType}
+                    onChange={(e) => setSelectedUserType(e.target.value)}
+                    className="px-3 py-2 border rounded-md bg-white"
+                    title="Filter by user type"
+                  >
+                    <option value="all">All Users</option>
+                    <option value="admins">Admins</option>
+                    <option value="hr">HR Users</option>
+                    <option value="content">Content Managers</option>
+                    <option value="support">Support Agents</option>
+                  </select>
                   <select
                     value={selectedRole}
                     onChange={(e) => setSelectedRole(e.target.value)}
@@ -467,7 +589,7 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
           {/* Users Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Admin Users ({filteredUsers.length})</CardTitle>
+              <CardTitle>{getUserTypeHeader()} ({filteredUsers.length})</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -587,6 +709,31 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
                   />
                   <p className="text-xs text-gray-500">Leave blank to keep current password</p>
                 </div>
+                <div className="space-y-2">
+                  <Label>Permissions</Label>
+                  <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                    {allPermissions.map(permission => (
+                      <div key={permission} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`edit_perm_${permission}`}
+                          checked={editUser.permissions.includes(permission)}
+                          onCheckedChange={(checked) => {
+                            setEditUser(prev => {
+                              const has = prev.permissions.includes(permission);
+                              const next = checked
+                                ? (has ? prev.permissions : [...prev.permissions, permission])
+                                : prev.permissions.filter(p => p !== permission);
+                              return { ...prev, permissions: next };
+                            });
+                          }}
+                        />
+                        <Label htmlFor={`edit_perm_${permission}`} className="text-sm">
+                          {permission.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
@@ -659,7 +806,7 @@ export function RoleManagement({ users, onUserUpdate }: RoleManagementProps) {
                   <div className="space-y-2">
                     <Label>Permissions</Label>
                     <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-                      {availablePermissions.map(permission => (
+                      {allPermissions.map(permission => (
                         <div key={permission} className="flex items-center space-x-2">
                           <Checkbox
                             id={permission}

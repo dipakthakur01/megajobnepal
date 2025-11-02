@@ -30,8 +30,11 @@ export function isMegaJob(tier?: string | null): boolean {
   return normalizeTier(tier) === 'megajob';
 }
 
-export function getTierLabel(tier?: string | null): string {
-  switch (normalizeTier(tier)) {
+export function getTierLabel(tier?: string | null, config?: Record<string, { label?: string }>): string {
+  const t = normalizeTier(tier);
+  const fromConfig = t && config && config[t]?.label;
+  if (fromConfig && typeof fromConfig === 'string') return fromConfig;
+  switch (t) {
     case 'megajob':
       return 'MegaJob';
     case 'premium':
@@ -44,4 +47,22 @@ export function getTierLabel(tier?: string | null): string {
     default:
       return 'Latest';
   }
+}
+
+export function getTierBadgeClass(tier?: string | null, config?: Record<string, { badgeClass?: string }>): string | undefined {
+  const t = normalizeTier(tier);
+  const cls = t && config && config[t]?.badgeClass;
+  return cls || undefined;
+}
+
+export function getTierTextClass(tier?: string | null, config?: Record<string, { textClass?: string }>): string | undefined {
+  const t = normalizeTier(tier);
+  const cls = t && config && config[t]?.textClass;
+  return cls || undefined;
+}
+
+export function getTierBgClass(tier?: string | null, config?: Record<string, { bgClass?: string }>): string | undefined {
+  const t = normalizeTier(tier);
+  const cls = t && config && config[t]?.bgClass;
+  return cls || undefined;
 }
