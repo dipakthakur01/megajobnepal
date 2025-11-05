@@ -6,7 +6,8 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { RichTextEditor } from '../ui/rich-text-editor';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { 
   Search, 
   Plus, 
@@ -75,7 +76,8 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
   const [verificationFilter, setVerificationFilter] = useState('all');
   const [industryFilter, setIndustryFilter] = useState('all');
   const [sortBy, setSortBy] = useState('name');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('list');
+  // Inline tabs replace the old add modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
@@ -125,9 +127,9 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
     return () => { mounted = false; };
   }, []);
 
-  // Reset Add Company form to clean LTR baseline when modal opens
+  // Reset Add Company form when switching to the add tab
   useEffect(() => {
-    if (isAddModalOpen) {
+    if (activeTab === 'add') {
       setFormData({
         name: '',
         email: '',
@@ -142,7 +144,7 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
       });
       setLogoFile(null);
     }
-  }, [isAddModalOpen]);
+  }, [activeTab]);
 
   // Filter and sort companies
   useEffect(() => {
@@ -254,7 +256,7 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
         }
         const updatedCompanies = [...companies, newCompany];
         onCompanyUpdate(updatedCompanies);
-        setIsAddModalOpen(false);
+        setActiveTab('list');
         resetForm();
         setLogoFile(null);
       } else {
@@ -351,7 +353,7 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
       verified: company.verified,
       status: company.status
     });
-    setIsEditModalOpen(true);
+    setActiveTab('edit');
   };
 
   // Open delete modal
@@ -391,14 +393,10 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
             <Building2 className="h-3 w-3 mr-1" />
             {companies.length} Companies
           </Badge>
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Company
-              </Button>
-            </DialogTrigger>
-          </Dialog>
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setActiveTab('add')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Company
+          </Button>
         </div>
       </div>
 
@@ -459,21 +457,29 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-64">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Search companies by name, email, or industry..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
+      {/* Inline Tabs for list and add */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="list">Company List</TabsTrigger>
+          <TabsTrigger value="add">+ Add Company</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list">
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex-1 min-w-64">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      placeholder="Search companies by name, email, or industry..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-40">
@@ -521,26 +527,26 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
                 <SelectItem value="employees">Employees</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Companies List */}
-      <div className="space-y-4">
-        {filteredCompanies.length === 0 ? (
-          <Card>
-            <CardContent className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No companies found</h3>
-                <p className="text-gray-600">Try adjusting your filters or add a new company.</p>
               </div>
             </CardContent>
           </Card>
-        ) : (
-          filteredCompanies.map((company) => (
-            <Card key={company._id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
+
+          {/* Companies List */}
+          <div className="space-y-4">
+            {filteredCompanies.length === 0 ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No companies found</h3>
+                    <p className="text-gray-600">Try adjusting your filters or add a new company.</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              filteredCompanies.map((company) => (
+                <Card key={company._id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-blue-50 flex items-center justify-center">
@@ -653,183 +659,282 @@ export function CompanyManagementNew({ companies, onCompanyUpdate }: CompanyMana
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
 
-      {/* Add Company Modal */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent dir="ltr" className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add New Company</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Company Name *</label>
-                <Input
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  placeholder="Enter company name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  placeholder="Enter email address"
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
-                <Input
-                  value={formData.phone}
-                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                  placeholder="Enter phone number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Website</label>
-                <Input
-                  value={formData.website}
-                  onChange={(e) => setFormData({...formData, website: e.target.value})}
-                  placeholder="Enter website URL"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1">Address</label>
-              <Input
-                value={formData.address}
-                onChange={(e) => setFormData({...formData, address: e.target.value})}
-                placeholder="Enter company address"
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Industry</label>
-                <Select value={formData.industry} onValueChange={(value) => setFormData({...formData, industry: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select industry" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {industryOptions.map(industry => (
-                      <SelectItem key={industry} value={industry}>{industry}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Company Size</label>
-                <Select value={formData.company_size} onValueChange={(value) => setFormData({...formData, company_size: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select company size" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {companySizes.map(size => (
-                      <SelectItem key={size} value={size}>{size} employees</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
-              <div dir="ltr" className="text-left">
-                <RichTextEditor
-                  value={formData.description}
-                  onChange={(value) => setFormData({...formData, description: value})}
-                  placeholder="Enter company description"
-                  showImageUpload={false}
-                  showLinkInsert={true}
-                />
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <Select value={formData.status} onValueChange={(value: 'active' | 'inactive' | 'suspended') => setFormData({...formData, status: value})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center space-x-2 pt-6">
-                <input
-                  type="checkbox"
-                  id="verified"
-                  checked={formData.verified}
-                  onChange={(e) => setFormData({...formData, verified: e.target.checked})}
-                />
-                <label htmlFor="verified" className="text-sm font-medium">Verified Company</label>
-              </div>
-            </div>
-            
-            {/* Company Logo Upload */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Company Logo</label>
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-md border bg-gray-50 overflow-hidden flex items-center justify-center">
-                  {logoFile ? (
-                    <img src={URL.createObjectURL(logoFile)} alt="Logo preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <Building2 className="h-8 w-8 text-gray-400" />
-                  )}
+      {/* Inline Add Company Tab */}
+      <TabsContent value="add">
+        <Card>
+          <CardHeader>
+            <CardTitle>Add New Company</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Name *</label>
+                  <Input
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    placeholder="Enter company name"
+                  />
                 </div>
                 <div>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setLogoFile(file);
-                    }}
+                  <label className="block text-sm font-medium mb-1">Email *</label>
+                  <Input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    placeholder="Enter email address"
                   />
-                  {logoFile && (
-                    <Button type="button" variant="ghost" className="mt-2" onClick={() => setLogoFile(null)}>
-                      Remove
-                    </Button>
-                  )}
                 </div>
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone</label>
+                  <Input
+                    value={formData.phone}
+                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    placeholder="Enter phone number"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Website</label>
+                  <Input
+                    value={formData.website}
+                    onChange={(e) => setFormData({...formData, website: e.target.value})}
+                    placeholder="Enter website URL"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Address</label>
+                <Input
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                  placeholder="Enter company address"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Industry</label>
+                  <Select value={formData.industry} onValueChange={(value) => setFormData({...formData, industry: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {industryOptions.map(industry => (
+                        <SelectItem key={industry} value={industry}>{industry}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Size</label>
+                  <Select value={formData.company_size} onValueChange={(value) => setFormData({...formData, company_size: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select company size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companySizes.map(size => (
+                        <SelectItem key={size} value={size}>{size} employees</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <div dir="ltr" className="text-left">
+                  <RichTextEditor
+                    value={formData.description}
+                    onChange={(value) => setFormData({...formData, description: value})}
+                    placeholder="Enter company description"
+                    showImageUpload={false}
+                    showLinkInsert={true}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <Select value={formData.status} onValueChange={(value: 'active' | 'inactive' | 'suspended') => setFormData({...formData, status: value})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2 pt-6">
+                  <input
+                    type="checkbox"
+                    id="verified-add"
+                    checked={formData.verified}
+                    onChange={(e) => setFormData({...formData, verified: e.target.checked})}
+                  />
+                  <label htmlFor="verified-add" className="text-sm font-medium">Verified Company</label>
+                </div>
+              </div>
+              
+              {/* Company Logo Upload */}
+              <div>
+                <label className="block text-sm font-medium mb-1">Company Logo</label>
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-md border bg-gray-50 overflow-hidden flex items-center justify-center">
+                    {logoFile ? (
+                      <img src={URL.createObjectURL(logoFile)} alt="Logo preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <Building2 className="h-8 w-8 text-gray-400" />
+                    )}
+                  </div>
+                  <div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        setLogoFile(file);
+                      }}
+                    />
+                    {logoFile && (
+                      <Button type="button" variant="ghost" className="mt-2" onClick={() => setLogoFile(null)}>
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setActiveTab('list')}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddCompany} disabled={loading}>
+                  {loading ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Company'
+                  )}
+                </Button>
+              </div>
             </div>
-            
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddCompany} disabled={loading}>
-                {loading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  'Add Company'
-                )}
-              </Button>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      {/* Edit Company Tab */}
+      <TabsContent value="edit">
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Company</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Name *</label>
+                  <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="Enter company name" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email *</label>
+                  <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="company@example.com" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Phone</label>
+                  <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="Enter phone number" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Website</label>
+                  <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="Enter website URL" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Address</label>
+                <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="Enter company address" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Industry</label>
+                  <Select value={formData.industry} onValueChange={(value) => setFormData({ ...formData, industry: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {industryOptions.map((industry) => (
+                        <SelectItem key={industry} value={industry}>
+                          {industry}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Company Size</label>
+                  <Select value={formData.company_size} onValueChange={(value) => setFormData({ ...formData, company_size: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select company size" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companySizes.map((size) => (
+                        <SelectItem key={size} value={size}>
+                          {size} employees
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Description</label>
+                <div dir="ltr" className="text-left">
+                  <RichTextEditor value={formData.description} onChange={(value) => setFormData({ ...formData, description: value })} placeholder="Enter company description" showImageUpload={false} showLinkInsert={true} />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <Select value={formData.status} onValueChange={(value: 'active' | 'inactive' | 'suspended') => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center space-x-2 pt-6">
+                  <input type="checkbox" id="verified-edit" checked={formData.verified} onChange={(e) => setFormData({ ...formData, verified: e.target.checked })} />
+                  <label htmlFor="verified-edit" className="text-sm font-medium">Verified Company</label>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setActiveTab('list')}>Cancel</Button>
+                <Button onClick={handleEditCompany} disabled={loading || !formData.name || !formData.email}>{loading ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Updating...</>) : ('Update Company')}</Button>
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      </TabsContent>
+      </Tabs>
 
       {/* Edit Company Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>

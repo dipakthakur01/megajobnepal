@@ -28,6 +28,8 @@ export function SuperAdminPanel() {
     approvalStatus: j.approvalStatus || j.approval_status || (
       j.status === 'active' ? 'approved' : j.status === 'rejected' ? 'rejected' : 'pending'
     ),
+    // Ensure admin UI has a unified cover image field
+    coverImageUrl: (j as any).coverImageUrl || (j as any).cover_image_url || undefined,
   });
 
   // Initial load of admin jobs from backend

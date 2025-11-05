@@ -60,6 +60,19 @@ export function CompanyManagement({ companies, jobs, onCompanyUpdate }: CompanyM
     company.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Pagination for Companies list
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
+  const totalPages = Math.ceil(filteredCompanies.length / itemsPerPage) || 1;
+  const paginatedCompanies = filteredCompanies.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, itemsPerPage]);
+
   const handleCreateCompany = () => {
     const company = {
       ...newCompany,
@@ -470,13 +483,14 @@ export function CompanyManagement({ companies, jobs, onCompanyUpdate }: CompanyM
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredCompanies.map((company) => {
+            {paginatedCompanies.map((company, idx) => {
               const jobCount = getJobCount(company.name);
               return (
                 <div key={company.name} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                   <div className="flex flex-col lg:flex-row justify-between items-start gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
+                        <div className="text-sm text-gray-600 w-6 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</div>
                         <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center overflow-hidden">
                           {company.logo ? (
                             <ImageWithFallback
@@ -603,6 +617,69 @@ export function CompanyManagement({ companies, jobs, onCompanyUpdate }: CompanyM
                 </div>
               );
             })}
+
+            {filteredCompanies.length > 0 && (
+              <div className="flex items-center justify-between px-2 py-3 border-t mt-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="px-2 py-1 border rounded-md bg-white"
+                  >
+                    {[10, 25, 50, 100].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <span>entries</span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Showing {filteredCompanies.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}
+                  {" "}to{" "}
+                  {Math.min(currentPage * itemsPerPage, filteredCompanies.length)} of {filteredCompanies.length} entries
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 7).map(page => (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  {totalPages > 7 && (
+                    <>
+                      <span className="px-2 text-gray-500">...</span>
+                      <Button
+                        variant={totalPages === currentPage ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {filteredCompanies.length === 0 && (
               <div className="text-center py-8 text-gray-500">

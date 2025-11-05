@@ -5,7 +5,7 @@ import { Badge } from '../components/ui/badge';
 import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+// Removed modal-based create job dialog in favor of inline tabs
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Plus, Edit, Trash2, Eye, Users, TrendingUp, Briefcase, Calendar } from 'lucide-react';
@@ -60,6 +60,7 @@ interface NewJobData {
   salaryType: string;
   salaryMin: string;
   salaryMax: string;
+  payType: string;
   experience: string;
   description: string;
   requirements: string;
@@ -78,7 +79,7 @@ interface EmployerDashboardProps {
 }
 
 export function EmployerDashboard({ jobs, applications, currentUser }: EmployerDashboardProps) {
-  const [showAddJobModal, setShowAddJobModal] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'jobs' | 'applications' | 'analytics' | 'add-job'>('jobs');
   const params = getJobParameters();
   const skillOptions = params.skills.filter(s => s.status === 'active').map(s => s.name);
   const languageOptions = params.languages.filter(l => l.status === 'active').map(l => l.name);
@@ -94,6 +95,7 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
     salaryType: 'exact',
     salaryMin: '',
     salaryMax: '',
+    payType: 'Monthly',
     experience: jobLevelOptions[0] || 'Entry Level',
     description: '',
     requirements: '',
@@ -152,6 +154,9 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
       default:
         break;
     }
+    if (formattedSalary && formattedSalary !== 'Not specified') {
+      formattedSalary = `${formattedSalary} ${newJob.payType}`;
+    }
 
     // Set expiry date if not provided (default to 30 days from now)
     let expiryDate = newJob.expiryDate;
@@ -171,7 +176,7 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
 
     // In a real app, this would make an API call
     console.log('Adding new job:', jobData);
-    setShowAddJobModal(false);
+    setActiveTab('jobs');
     setNewJob({
       title: '',
       company: currentUser?.company || '',
@@ -182,6 +187,7 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
       salaryType: 'exact',
       salaryMin: '',
       salaryMax: '',
+      payType: 'Monthly',
       experience: 'Entry Level',
       description: '',
       requirements: '',
@@ -214,330 +220,10 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
             <h1 className="text-3xl font-bold text-gray-900">Employer Dashboard</h1>
             <p className="text-gray-600 mt-2">Manage your job postings and applications</p>
           </div>
-          <Dialog open={showAddJobModal} onOpenChange={setShowAddJobModal}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Plus className="w-4 h-4 mr-2" />
-                Post New Job
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby="post-job-description">
-              <DialogHeader>
-                <DialogTitle>Post a New Job</DialogTitle>
-                <DialogDescription id="post-job-description">
-                  Fill out the form below to create a new job posting for your company.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="title">Job Title</Label>
-                    <Input
-                      id="title"
-                      value={newJob.title}
-                      onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
-                      placeholder="e.g. Software Engineer"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="company">Company</Label>
-                    <Input
-                      id="company"
-                      value={newJob.company}
-                      onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
-                      placeholder="Company name"
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="location">Location</Label>
-                    <Input
-                      id="location"
-                      value={newJob.location}
-                      onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
-                      placeholder="e.g. Kathmandu"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="expiryDate">Job Expiry Date</Label>
-                    <Input
-                      id="expiryDate"
-                      type="date"
-                      value={newJob.expiryDate}
-                      onChange={(e) => setNewJob({ ...newJob, expiryDate: e.target.value })}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                </div>
-
-                {/* Enhanced Salary Section */}
-                <div className="space-y-4">
-                  <Label>Salary Information</Label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="salaryType">Salary Type</Label>
-                      <Select value={newJob.salaryType} onValueChange={(value) => setNewJob({ ...newJob, salaryType: value })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="range">Salary Range</SelectItem>
-                          <SelectItem value="exact">Fixed Salary</SelectItem>
-                          <SelectItem value="negotiable">Negotiable</SelectItem>
-                          <SelectItem value="competitive">Competitive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div></div>
-                  </div>
-
-                  {newJob.salaryType === 'range' && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="salaryMin">Minimum Salary (NPR)</Label>
-                        <Input
-                          id="salaryMin"
-                          type="number"
-                          value={newJob.salaryMin}
-                          onChange={(e) => setNewJob({ ...newJob, salaryMin: e.target.value })}
-                          placeholder="e.g. 50000"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="salaryMax">Maximum Salary (NPR)</Label>
-                        <Input
-                          id="salaryMax"
-                          type="number"
-                          value={newJob.salaryMax}
-                          onChange={(e) => setNewJob({ ...newJob, salaryMax: e.target.value })}
-                          placeholder="e.g. 70000"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {newJob.salaryType === 'exact' && (
-                    <div>
-                      <Label htmlFor="salary">Salary Amount (NPR)</Label>
-                      <Input
-                        id="salary"
-                        type="number"
-                        value={newJob.salary}
-                        onChange={(e) => setNewJob({ ...newJob, salary: e.target.value })}
-                        placeholder="e.g. 60000"
-                      />
-                    </div>
-                  )}
-
-                  {(newJob.salaryType === 'negotiable' || newJob.salaryType === 'competitive') && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        {newJob.salaryType === 'negotiable' 
-                          ? 'Salary will be marked as "Negotiable" - candidates can discuss compensation during the interview process.'
-                          : 'Salary will be marked as "Competitive" - indicating market-rate compensation based on experience.'
-                        }
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Job Parameters */}
-                <div className="space-y-4">
-                  <Label>Job Parameters</Label>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="employeeType">Employee Type</Label>
-                      <Select value={newJob.employeeType} onValueChange={(value) => setNewJob({ ...newJob, employeeType: value })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {employeeTypeOptions.map((opt) => (
-                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="jobLevel">Job Level</Label>
-                      <Select value={newJob.jobLevel} onValueChange={(value) => setNewJob({ ...newJob, jobLevel: value })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {jobLevelOptions.map((opt) => (
-                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="experience">Experience Level</Label>
-                      <Select value={newJob.experience} onValueChange={(value) => setNewJob({ ...newJob, experience: value })}>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Entry Level">Entry Level</SelectItem>
-                          <SelectItem value="Junior Level">Junior Level</SelectItem>
-                          <SelectItem value="Mid Level">Mid Level</SelectItem>
-                          <SelectItem value="Senior Level">Senior Level</SelectItem>
-                          <SelectItem value="Executive">Executive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>Skills (select one or more)</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
-                      {skillOptions.map((skill) => {
-                        const checked = newJob.skills.includes(skill);
-                        return (
-                          <label key={skill} className="flex items-center space-x-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                const next = e.target.checked
-                                  ? [...newJob.skills, skill]
-                                  : newJob.skills.filter(s => s !== skill);
-                                setNewJob({ ...newJob, skills: next });
-                              }}
-                            />
-                            <span>{skill}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {newJob.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {newJob.skills.map((s) => (
-                          <Badge key={s} variant="outline">{s}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label>Languages</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-2">
-                      {languageOptions.map((lang) => {
-                        const checked = newJob.languages.includes(lang);
-                        return (
-                          <label key={lang} className="flex items-center space-x-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              onChange={(e) => {
-                                const next = e.target.checked
-                                  ? [...newJob.languages, lang]
-                                  : newJob.languages.filter(l => l !== lang);
-                                setNewJob({ ...newJob, languages: next });
-                              }}
-                            />
-                            <span>{lang}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                    {newJob.languages.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {newJob.languages.map((l) => (
-                          <Badge key={l} variant="outline">{l}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="type">Job Type</Label>
-                    <Select value={newJob.type} onValueChange={(value) => setNewJob({ ...newJob, type: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Full Time">Full Time</SelectItem>
-                        <SelectItem value="Part Time">Part Time</SelectItem>
-                        <SelectItem value="Contract">Contract</SelectItem>
-                        <SelectItem value="Remote">Remote</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Input
-                      id="category"
-                      value={newJob.category}
-                      onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
-                      placeholder="e.g. IT"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="experience">Experience Level</Label>
-                    <Select value={newJob.experience} onValueChange={(value) => setNewJob({ ...newJob, experience: value })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Entry Level">Entry Level</SelectItem>
-                        <SelectItem value="Junior Level">Junior Level</SelectItem>
-                        <SelectItem value="Mid Level">Mid Level</SelectItem>
-                        <SelectItem value="Senior Level">Senior Level</SelectItem>
-                        <SelectItem value="Executive">Executive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Job Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newJob.description}
-                    onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
-                    placeholder="Describe the role, responsibilities, and what you're looking for..."
-                    rows={4}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="requirements">Requirements (separate with commas)</Label>
-                  <Textarea
-                    id="requirements"
-                    value={newJob.requirements}
-                    onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })}
-                    placeholder="e.g. Bachelor's degree, 2+ years experience, JavaScript knowledge"
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="benefits">Benefits (separate with commas)</Label>
-                  <Textarea
-                    id="benefits"
-                    value={newJob.benefits}
-                    onChange={(e) => setNewJob({ ...newJob, benefits: e.target.value })}
-                    placeholder="e.g. Health insurance, Flexible hours, Professional development"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button variant="outline" onClick={() => setShowAddJobModal(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddJob} className="bg-blue-600 hover:bg-blue-700">
-                    Post Job
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setActiveTab('add-job')}>
+            <Plus className="w-4 h-4 mr-2" />
+            Post New Job
+          </Button>
         </div>
 
         {/* Stats Cards */}
@@ -592,11 +278,12 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
         </div>
 
         {/* Main Content */}
-        <Tabs defaultValue="jobs" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
           <TabsList>
             <TabsTrigger value="jobs">Job Postings</TabsTrigger>
             <TabsTrigger value="applications">Applications</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="add-job">+ Add Job</TabsTrigger>
           </TabsList>
 
           {/* Job Postings Tab */}
@@ -763,3 +450,310 @@ export function EmployerDashboard({ jobs, applications, currentUser }: EmployerD
 }
 
 export default EmployerDashboard;
+          {/* Add Job Tab */}
+          <TabsContent value="add-job">
+            <Card>
+              <CardHeader>
+                <CardTitle>Post a New Job</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="title">Job Title</Label>
+                      <Input
+                        id="title"
+                        value={newJob.title}
+                        onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+                        placeholder="e.g. Software Engineer"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="company">Company</Label>
+                      <Input
+                        id="company"
+                        value={newJob.company}
+                        onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
+                        placeholder="Company name"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="location">Location</Label>
+                      <Input
+                        id="location"
+                        value={newJob.location}
+                        onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
+                        placeholder="e.g. Kathmandu"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="expiryDate">Job Expiry Date</Label>
+                      <Input
+                        id="expiryDate"
+                        type="date"
+                        value={newJob.expiryDate}
+                        onChange={(e) => setNewJob({ ...newJob, expiryDate: e.target.value })}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Offered Salary */}
+                  <div className="space-y-4">
+                    <Label>Offered Salary</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="payType">Pay Type</Label>
+                        <Select value={newJob.payType} onValueChange={(value) => setNewJob({ ...newJob, payType: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Monthly">Monthly</SelectItem>
+                            <SelectItem value="Weekly">Weekly</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="salaryRange">Salary Range</Label>
+                        <Select
+                          onValueChange={(value) => {
+                            if (value === 'Negotiable') {
+                              setNewJob({ ...newJob, salaryType: 'negotiable', salary: '', salaryMin: '', salaryMax: '' });
+                            } else {
+                              const [minStr, maxStr] = value.split('-');
+                              const min = (minStr || '').replace(/[^0-9]/g, '');
+                              const max = (maxStr || '').replace(/[^0-9]/g, '');
+                              setNewJob({ ...newJob, salaryType: 'range', salaryMin: min, salaryMax: max, salary: '' });
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={newJob.salaryType === 'negotiable' ? 'Negotiable' : (newJob.salaryMin && newJob.salaryMax ? `${newJob.salaryMin}-${newJob.salaryMax}` : 'Select Salary Range')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Negotiable">Negotiable</SelectItem>
+                            <SelectItem value="10000-20000">10,000-20,000</SelectItem>
+                            <SelectItem value="20000-30000">20,000-30,000</SelectItem>
+                            <SelectItem value="30000-40000">30,000-40,000</SelectItem>
+                            <SelectItem value="40000-50000">40,000-50,000</SelectItem>
+                            <SelectItem value="50000-60000">50,000-60,000</SelectItem>
+                            <SelectItem value="60000-70000">60,000-70,000</SelectItem>
+                            <SelectItem value="70000-80000">70,000-80,000</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="salary">Salary Amount (NPR)</Label>
+                      <Input
+                        id="salary"
+                        type="number"
+                        value={newJob.salary}
+                        onChange={(e) => setNewJob({ ...newJob, salary: e.target.value, salaryType: 'exact', salaryMin: '', salaryMax: '' })}
+                        placeholder="e.g. 60000"
+                      />
+                      <div className="text-xs text-muted-foreground mt-1">Enter a fixed amount or use the range/negotiable dropdowns.</div>
+                    </div>
+                  </div>
+
+                  {/* Job Parameters */}
+                  <div className="space-y-4">
+                    <Label>Job Parameters</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="employeeType">Employee Type</Label>
+                        <Select value={newJob.employeeType} onValueChange={(value) => setNewJob({ ...newJob, employeeType: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {employeeTypeOptions.map((opt) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="jobLevel">Job Level</Label>
+                        <Select value={newJob.jobLevel} onValueChange={(value) => setNewJob({ ...newJob, jobLevel: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {jobLevelOptions.map((opt) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="experience">Experience Level</Label>
+                        <Select value={newJob.experience} onValueChange={(value) => setNewJob({ ...newJob, experience: value })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Entry Level">Entry Level</SelectItem>
+                            <SelectItem value="Junior Level">Junior Level</SelectItem>
+                            <SelectItem value="Mid Level">Mid Level</SelectItem>
+                            <SelectItem value="Senior Level">Senior Level</SelectItem>
+                            <SelectItem value="Executive">Executive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label>Skills (select one or more)</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {skillOptions.map((skill) => {
+                          const checked = newJob.skills.includes(skill);
+                          return (
+                            <label key={skill} className="flex items-center space-x-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...newJob.skills, skill]
+                                    : newJob.skills.filter(s => s !== skill);
+                                  setNewJob({ ...newJob, skills: next });
+                                }}
+                              />
+                              <span>{skill}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {newJob.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {newJob.skills.map((s) => (
+                            <Badge key={s} variant="outline">{s}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label>Languages</Label>
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {languageOptions.map((lang) => {
+                          const checked = newJob.languages.includes(lang);
+                          return (
+                            <label key={lang} className="flex items-center space-x-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={(e) => {
+                                  const next = e.target.checked
+                                    ? [...newJob.languages, lang]
+                                    : newJob.languages.filter(l => l !== lang);
+                                  setNewJob({ ...newJob, languages: next });
+                                }}
+                              />
+                              <span>{lang}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {newJob.languages.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {newJob.languages.map((l) => (
+                            <Badge key={l} variant="outline">{l}</Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="type">Job Type</Label>
+                      <Select value={newJob.type} onValueChange={(value) => setNewJob({ ...newJob, type: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Full Time">Full Time</SelectItem>
+                          <SelectItem value="Part Time">Part Time</SelectItem>
+                          <SelectItem value="Contract">Contract</SelectItem>
+                          <SelectItem value="Remote">Remote</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="category">Category</Label>
+                      <Input
+                        id="category"
+                        value={newJob.category}
+                        onChange={(e) => setNewJob({ ...newJob, category: e.target.value })}
+                        placeholder="e.g. IT"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="experience">Experience Level</Label>
+                      <Select value={newJob.experience} onValueChange={(value) => setNewJob({ ...newJob, experience: value })}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Entry Level">Entry Level</SelectItem>
+                          <SelectItem value="Junior Level">Junior Level</SelectItem>
+                          <SelectItem value="Mid Level">Mid Level</SelectItem>
+                          <SelectItem value="Senior Level">Senior Level</SelectItem>
+                          <SelectItem value="Executive">Executive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="description">Job Description</Label>
+                    <Textarea
+                      id="description"
+                      value={newJob.description}
+                      onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
+                      placeholder="Describe the role, responsibilities, and what you're looking for..."
+                      rows={4}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="requirements">Requirements (separate with commas)</Label>
+                    <Textarea
+                      id="requirements"
+                      value={newJob.requirements}
+                      onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })}
+                      placeholder="e.g. Bachelor's degree, 2+ years experience, JavaScript knowledge"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="benefits">Benefits (separate with commas)</Label>
+                    <Textarea
+                      id="benefits"
+                      value={newJob.benefits}
+                      onChange={(e) => setNewJob({ ...newJob, benefits: e.target.value })}
+                      placeholder="e.g. Health insurance, Flexible hours, Professional development"
+                      rows={3}
+                    />
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-4">
+                    <Button variant="outline" onClick={() => setActiveTab('jobs')}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleAddJob} className="bg-blue-600 hover:bg-blue-700">
+                      Post Job
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>

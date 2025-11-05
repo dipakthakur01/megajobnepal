@@ -5,7 +5,8 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+// Removed dialog imports after migrating edit flow to inline tabs
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Label } from '../ui/label';
 import { Plus, Edit, Trash2, Search, Filter, Eye } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,7 +22,7 @@ export function JobManagement({ jobs, companies, onJobUpdate }: JobManagementPro
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTier, setFilterTier] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all-job' | 'add-job'>('all-job');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
@@ -68,7 +69,7 @@ export function JobManagement({ jobs, companies, onJobUpdate }: JobManagementPro
     };
 
     onJobUpdate([...jobs, job]);
-    setIsCreateModalOpen(false);
+    setActiveTab('all-job');
     setNewJob({
       title: '',
       company: '',
@@ -104,7 +105,7 @@ export function JobManagement({ jobs, companies, onJobUpdate }: JobManagementPro
     );
 
     onJobUpdate(updatedJobs);
-    setIsEditModalOpen(false);
+    setActiveTab('all-job');
     setSelectedJob(null);
     toast.success('Job updated successfully!');
   };
@@ -330,187 +331,86 @@ export function JobManagement({ jobs, companies, onJobUpdate }: JobManagementPro
           <h2 className="text-2xl font-bold">Job Management</h2>
           <p className="text-gray-600">Manage all job postings</p>
         </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Job
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Create New Job</DialogTitle>
-              <DialogDescription>
-                Add a new job posting to the platform.
-              </DialogDescription>
-            </DialogHeader>
-            <JobFormFields job={newJob} setJob={setNewJob} />
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateJob}>
-                Create Job
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button onClick={() => setActiveTab('add-job')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add New Job
+          </Button>
+        </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search jobs by title, company, or category..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <Select value={filterTier} onValueChange={setFilterTier}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Filter by tier" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Tiers</SelectItem>
-                <SelectItem value="megajob">MegaJob</SelectItem>
-                <SelectItem value="premium">Premium</SelectItem>
-                <SelectItem value="prime">Prime</SelectItem>
-                <SelectItem value="newspaper">Newspaper</SelectItem>
-                <SelectItem value="latest">Latest</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-40">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tabs for jobs and add form */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="all-job">All Job</TabsTrigger>
+          <TabsTrigger value="add-job">+ Add job</TabsTrigger>
+        </TabsList>
 
-      {/* Bulk Actions */}
-      {selectedJobs.length > 0 && (
-        <Card className="bg-blue-50 border-blue-200">
-          <CardContent className="p-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="flex items-center gap-4">
-                <p className="font-medium text-blue-900">
-                  {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedJobs([])}
-                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
-                >
-                  Clear Selection
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Select onValueChange={handleBulkTierChange}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Move to tier..." />
+        <TabsContent value="all-job" className="space-y-6">
+          {/* Filters */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Search jobs by title, company, or category..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <Select value={filterTier} onValueChange={setFilterTier}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Filter by tier" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="latest">Latest</SelectItem>
-                    <SelectItem value="newspaper">Newspaper</SelectItem>
-                    <SelectItem value="prime">Prime</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="all">All Tiers</SelectItem>
                     <SelectItem value="megajob">MegaJob</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="prime">Prime</SelectItem>
+                    <SelectItem value="newspaper">Newspaper</SelectItem>
+                    <SelectItem value="latest">Latest</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleBulkDelete}
-                  className="border-red-300 text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Delete Selected
-                </Button>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-full sm:w-40">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="expired">Expired</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
 
-      {/* Jobs List */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Jobs ({filteredJobs.length})</CardTitle>
-            {filteredJobs.length > 0 && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="select-all"
-                  checked={selectedJobs.length === filteredJobs.length && filteredJobs.length > 0}
-                  onChange={handleSelectAll}
-                  className="rounded"
-                />
-                <Label htmlFor="select-all" className="text-sm">
-                  Select All
-                </Label>
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredJobs.map((job) => (
-              <div key={job.id} className={`border rounded-lg p-4 transition-colors ${selectedJobs.includes(job.id) ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}`}>
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedJobs.includes(job.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedJobs([...selectedJobs, job.id]);
-                        } else {
-                          setSelectedJobs(selectedJobs.filter(id => id !== job.id));
-                        }
-                      }}
-                      className="rounded mt-1"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="font-semibold">{job.title}</h3>
-                        {getTierBadge(job.tier)}
-                        {job.featured && <Badge variant="outline">Featured</Badge>}
-                      </div>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <p><strong>Company:</strong> {job.company}</p>
-                        <p><strong>Location:</strong> {job.location} • <strong>Type:</strong> {job.type}</p>
-                        <p><strong>Category:</strong> {job.category} • <strong>Salary:</strong> {job.salary}</p>
-                        <p><strong>Posted:</strong> {job.publishedDate}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Select
-                      value={job.tier}
-                      onValueChange={(newTier) => {
-                        const updatedJobs = jobs.map(j => 
-                          j.id === job.id ? { ...j, tier: newTier } : j
-                        );
-                        onJobUpdate(updatedJobs);
-                        toast.success(`Job moved to ${newTier} tier!`);
-                      }}
+          {/* Bulk Actions */}
+          {selectedJobs.length > 0 && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div className="flex items-center gap-4">
+                    <p className="font-medium text-blue-900">
+                      {selectedJobs.length} job{selectedJobs.length > 1 ? 's' : ''} selected
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedJobs([])}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
                     >
-                      <SelectTrigger className="w-24 h-8">
-                        <SelectValue />
+                      Clear Selection
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Select onValueChange={handleBulkTierChange}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue placeholder="Move to tier..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="latest">Latest</SelectItem>
@@ -523,60 +423,165 @@ export function JobManagement({ jobs, companies, onJobUpdate }: JobManagementPro
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        setSelectedJob({
-                          ...job,
-                          requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : job.requirements.join('\n'),
-                          benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : job.benefits.join('\n')
-                        });
-                        setIsEditModalOpen(true);
-                      }}
+                      onClick={handleBulkDelete}
+                      className="border-red-300 text-red-700 hover:bg-red-50"
                     >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteJob(job.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete Selected
                     </Button>
                   </div>
                 </div>
-              </div>
-            ))}
-
-            {filteredJobs.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No jobs found matching your criteria.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Edit Job Modal */}
-      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Job</DialogTitle>
-            <DialogDescription>
-              Update the job posting details.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedJob && (
-            <JobFormFields job={selectedJob} setJob={setSelectedJob} isEdit={true} />
+              </CardContent>
+            </Card>
           )}
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEditJob}>
-              Update Job
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Jobs List */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Jobs ({filteredJobs.length})</CardTitle>
+                {filteredJobs.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="select-all"
+                      checked={selectedJobs.length === filteredJobs.length && filteredJobs.length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded"
+                    />
+                    <Label htmlFor="select-all" className="text-sm">
+                      Select All
+                    </Label>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {filteredJobs.map((job) => (
+                  <div key={job.id} className={`border rounded-lg p-4 transition-colors ${selectedJobs.includes(job.id) ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'}`}>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={selectedJobs.includes(job.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedJobs([...selectedJobs, job.id]);
+                            } else {
+                              setSelectedJobs(selectedJobs.filter(id => id !== job.id));
+                            }
+                          }}
+                          className="rounded mt-1"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h3 className="font-semibold">{job.title}</h3>
+                            {getTierBadge(job.tier)}
+                            {job.featured && <Badge variant="outline">Featured</Badge>}
+                          </div>
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Company:</strong> {job.company}</p>
+                            <p><strong>Location:</strong> {job.location} • <strong>Type:</strong> {job.type}</p>
+                            <p><strong>Category:</strong> {job.category} • <strong>Salary:</strong> {job.salary}</p>
+                            <p><strong>Posted:</strong> {job.publishedDate}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Select
+                          value={job.tier}
+                          onValueChange={(newTier) => {
+                            const updatedJobs = jobs.map(j => 
+                              j.id === job.id ? { ...j, tier: newTier } : j
+                            );
+                            onJobUpdate(updatedJobs);
+                            toast.success(`Job moved to ${newTier} tier!`);
+                          }}
+                        >
+                          <SelectTrigger className="w-24 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="latest">Latest</SelectItem>
+                            <SelectItem value="newspaper">Newspaper</SelectItem>
+                            <SelectItem value="prime">Prime</SelectItem>
+                            <SelectItem value="premium">Premium</SelectItem>
+                            <SelectItem value="megajob">MegaJob</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedJob({
+                              ...job,
+                              requirements: Array.isArray(job.requirements) ? job.requirements.join('\n') : job.requirements.join('\n'),
+                              benefits: Array.isArray(job.benefits) ? job.benefits.join('\n') : job.benefits.join('\n')
+                            });
+                            setActiveTab('edit-job');
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteJob(job.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {filteredJobs.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No jobs found matching your criteria.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="add-job" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Create New Job</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <JobFormFields job={newJob} setJob={setNewJob} />
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setActiveTab('all-job')}>Cancel</Button>
+                <Button onClick={handleCreateJob}>Create Job</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Edit Job Tab */}
+        <TabsContent value="edit-job" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Edit Job</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedJob && (
+                <JobFormFields job={selectedJob} setJob={setSelectedJob} isEdit={true} />
+              )}
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button variant="outline" onClick={() => setActiveTab('all-job')}>Cancel</Button>
+                <Button onClick={handleEditJob}>Update Job</Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+
+      
     </div>
   );
 }

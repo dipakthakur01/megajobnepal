@@ -13,7 +13,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '../../components/ui/dialog';
 import { 
   Briefcase, 
@@ -51,7 +50,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
   const [statusFilter, setStatusFilter] = useState('all');
   const [tierFilter, setTierFilter] = useState('all');
   const [companyFilter, setCompanyFilter] = useState('all');
-  const [isCreateJobOpen, setIsCreateJobOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all-jobs' | 'add-job' | 'pending' | 'tier-management'>('all-jobs');
   const [editingJob, setEditingJob] = useState<any>(null);
 
   // Enhanced job data with tiers
@@ -74,6 +73,11 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
     description: '',
     requirements: '',
     salary: '',
+    // structured salary fields
+    salaryType: 'exact',
+    salaryMin: '',
+    salaryMax: '',
+    payType: 'Monthly',
     tier: 'Latest Jobs',
     type: 'Full Time',
     category: '',
@@ -159,10 +163,24 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
       toast.error('Please fill in all required fields');
       return;
     }
+    const formatNumber = (val: string) => {
+      const num = Number(val);
+      if (Number.isNaN(num)) return val;
+      return num.toLocaleString();
+    };
+    let salaryFormatted = '';
+    if (newJob.salaryType === 'negotiable') {
+      salaryFormatted = `Negotiable (${newJob.payType})`;
+    } else if (newJob.salaryType === 'range' && newJob.salaryMin && newJob.salaryMax) {
+      salaryFormatted = `NPR ${formatNumber(newJob.salaryMin)} - ${formatNumber(newJob.salaryMax)} (${newJob.payType})`;
+    } else if (newJob.salary) {
+      salaryFormatted = `NPR ${formatNumber(newJob.salary)} (${newJob.payType})`;
+    }
 
     const job = {
       id: Date.now().toString(),
       ...newJob,
+      salary: salaryFormatted || newJob.salary,
       status: 'active',
       postedDate: new Date().toISOString().split('T')[0],
       applicationCount: 0,
@@ -178,6 +196,10 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
       description: '',
       requirements: '',
       salary: '',
+      salaryType: 'exact',
+      salaryMin: '',
+      salaryMax: '',
+      payType: 'Monthly',
       tier: 'Latest Jobs',
       type: 'Full Time',
       category: '',
@@ -187,7 +209,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
       urgent: false,
       coverImage: null
     });
-    setIsCreateJobOpen(false);
+    setActiveTab('all-jobs');
     toast.success('Job created successfully!');
   };
 
@@ -228,198 +250,10 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
             <Download className="h-4 w-4 mr-2" />
             Export Jobs
           </Button>
-          <Dialog open={isCreateJobOpen} onOpenChange={setIsCreateJobOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="h-4 w-4 mr-2" />
-                Create Job
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create New Job Post</DialogTitle>
-                <DialogDescription>
-                  Create a new job posting and assign it to a tier.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="jobTitle">Job Title</Label>
-                    <Input
-                      id="jobTitle"
-                      value={newJob.title}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewJob({ ...newJob, title: e.target.value })}
-                      placeholder="Enter job title"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jobCompany">Company</Label>
-                    <select
-                      id="jobCompany"
-                      value={newJob.company}
-                      onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      <option value="">Select company</option>
-                      {companies.map(company => (
-                        <option key={company.id} value={company.name}>{company.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="jobLocation">Location</Label>
-                    <Input
-                      id="jobLocation"
-                      value={newJob.location}
-                      onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
-                      placeholder="Enter location"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jobSalary">Salary</Label>
-                    <Input
-                      id="jobSalary"
-                      value={newJob.salary}
-                      onChange={(e) => setNewJob({ ...newJob, salary: e.target.value })}
-                      placeholder="Enter salary range"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="jobTier">Job Tier</Label>
-                    <select
-                      id="jobTier"
-                      value={newJob.tier}
-                      onChange={(e) => setNewJob({ ...newJob, tier: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      {jobTiers.map(tier => (
-                        <option key={tier.name} value={tier.name}>
-                          {tier.name} - {tier.price}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jobType">Job Type</Label>
-                    <select
-                      id="jobType"
-                      value={newJob.type}
-                      onChange={(e) => setNewJob({ ...newJob, type: e.target.value })}
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      <option value="Full Time">Full Time</option>
-                      <option value="Part Time">Part Time</option>
-                      <option value="Contract">Contract</option>
-                      <option value="Internship">Internship</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="jobExperience">Experience</Label>
-                    <Input
-                      id="jobExperience"
-                      value={newJob.experience}
-                      onChange={(e) => setNewJob({ ...newJob, experience: e.target.value })}
-                      placeholder="e.g., 2-3 years"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="jobDescription">Job Description</Label>
-                  <Textarea
-                    id="jobDescription"
-                    value={newJob.description}
-                    onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
-                    placeholder="Enter job description"
-                    rows={4}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="jobRequirements">Requirements</Label>
-                  <Textarea
-                    id="jobRequirements"
-                    value={newJob.requirements}
-                    onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })}
-                    placeholder="Enter job requirements"
-                    rows={3}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="jobDeadline">Application Deadline</Label>
-                  <Input
-                    id="jobDeadline"
-                    type="date"
-                    value={newJob.deadline}
-                    onChange={(e) => setNewJob({ ...newJob, deadline: e.target.value })}
-                  />
-                </div>
-
-                {/* Job Cover Image Upload */}
-                <div className="space-y-2">
-                  <Label>Job Cover Image</Label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    {newJob.coverImage ? (
-                      <div className="space-y-2">
-                        <div className="w-full h-32 mx-auto bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                          <ImageWithFallback
-                            src={URL.createObjectURL(newJob.coverImage)}
-                            alt="Job Cover"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <p className="text-sm text-gray-600">{newJob.coverImage.name}</p>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setNewJob({ ...newJob, coverImage: null })}
-                        >
-                          Remove Image
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                        <p className="text-gray-600">Upload job cover image</p>
-                        <p className="text-sm text-gray-500">JPG, PNG up to 5MB. Recommended size: 1200x600px</p>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => setNewJob({ ...newJob, coverImage: e.target.files?.[0] || null })}
-                          className="hidden"
-                          id="job-cover-upload"
-                        />
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          onClick={() => document.getElementById('job-cover-upload')?.click()}
-                          className="mt-2"
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          Choose Image
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateJobOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateJob}>Create Job</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => setActiveTab('add-job')}>
+            <Upload className="h-4 w-4 mr-2" />
+            Create Job
+          </Button>
         </div>
       </div>
 
@@ -445,9 +279,10 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
         })}
       </div>
 
-      <Tabs defaultValue="all-jobs" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="all-jobs">All Jobs</TabsTrigger>
+          <TabsTrigger value="add-job">+ Add Job</TabsTrigger>
           <TabsTrigger value="pending">Pending Approval</TabsTrigger>
           <TabsTrigger value="tier-management">Tier Management</TabsTrigger>
         </TabsList>
@@ -725,3 +560,352 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
     </div>
   );
 }
+        {/* Add Job inline */}
+        <TabsContent value="add-job" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Create New Job Post</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="jobTitle">Job Title</Label>
+                    <Input
+                      id="jobTitle"
+                      value={newJob.title}
+                      onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
+                      placeholder="Enter job title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jobCompany">Company</Label>
+                    <select
+                      id="jobCompany"
+                      value={newJob.company}
+                      onChange={(e) => setNewJob({ ...newJob, company: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">Select company</option>
+                      {companies.map(company => (
+                        <option key={company.id} value={company.name}>{company.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="jobLocation">Location</Label>
+                    <Input
+                      id="jobLocation"
+                      value={newJob.location}
+                      onChange={(e) => setNewJob({ ...newJob, location: e.target.value })}
+                      placeholder="Enter location"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Offered Salary</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label htmlFor="payType">Pay Type</Label>
+                        <select
+                          id="payType"
+                          value={newJob.payType}
+                          onChange={(e) => setNewJob({ ...newJob, payType: e.target.value })}
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="Monthly">Monthly</option>
+                          <option value="Weekly">Weekly</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label htmlFor="salaryRange">Salary Range</Label>
+                        <select
+                          id="salaryRange"
+                          value={newJob.salaryType === 'range' ? `${newJob.salaryMin}-${newJob.salaryMax}` : newJob.salaryType}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'negotiable') {
+                              setNewJob({ ...newJob, salaryType: 'negotiable', salaryMin: '', salaryMax: '', salary: '' });
+                            } else if (val.includes('-')) {
+                              const [min, max] = val.split('-');
+                              setNewJob({ ...newJob, salaryType: 'range', salaryMin: min, salaryMax: max, salary: '' });
+                            } else {
+                              setNewJob({ ...newJob, salaryType: 'exact', salaryMin: '', salaryMax: '' });
+                            }
+                          }}
+                          className="w-full px-3 py-2 border rounded-md"
+                        >
+                          <option value="">Select range or negotiable</option>
+                          <option value="negotiable">Negotiable</option>
+                          <option value="20000-30000">20,000-30,000</option>
+                          <option value="30000-40000">30,000-40,000</option>
+                          <option value="40000-50000">40,000-50,000</option>
+                          <option value="50000-60000">50,000-60,000</option>
+                          <option value="60000-70000">60,000-70,000</option>
+                          <option value="70000-80000">70,000-80,000</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <Label htmlFor="jobSalary">Salary Amount (NPR)</Label>
+                      <Input
+                        id="jobSalary"
+                        type="number"
+                        value={newJob.salary}
+                        onChange={(e) => setNewJob({ ...newJob, salary: e.target.value, salaryType: 'exact', salaryMin: '', salaryMax: '' })}
+                        placeholder="e.g. 60000"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="jobTier">Job Tier</Label>
+                    <select
+                      id="jobTier"
+                      value={newJob.tier}
+                      onChange={(e) => setNewJob({ ...newJob, tier: normalizeTier(e.target.value) || 'latest' })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      {jobTiers.map(tier => (
+                        <option key={tier.key} value={tier.key}>
+                          {tier.label} - {tier.price}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jobType">Job Type</Label>
+                    <select
+                      id="jobType"
+                      value={newJob.type}
+                      onChange={(e) => setNewJob({ ...newJob, type: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="Full Time">Full Time</option>
+                      <option value="Part Time">Part Time</option>
+                      <option value="Contract">Contract</option>
+                      <option value="Internship">Internship</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="jobExperience">Experience</Label>
+                    <select
+                      id="jobExperience"
+                      value={newJob.experience}
+                      onChange={(e) => setNewJob({ ...newJob, experience: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">Select experience</option>
+                      {parameters.experience.map((exp) => (
+                        <option key={exp.id} value={exp.name}>{exp.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="jobLevel">Job Level</Label>
+                    <select
+                      id="jobLevel"
+                      value={newJob.jobLevel}
+                      onChange={(e) => setNewJob({ ...newJob, jobLevel: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">Select job level</option>
+                      {parameters.jobLevels.map((lvl) => (
+                        <option key={lvl.id} value={lvl.name}>{lvl.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="licenseRequired">License Required</Label>
+                    <div className="flex items-center h-[38px] border rounded-md px-3">
+                      <input
+                        id="licenseRequired"
+                        type="checkbox"
+                        checked={newJob.licenseRequired}
+                        onChange={(e) => setNewJob({ ...newJob, licenseRequired: e.target.checked })}
+                        className="mr-2"
+                      />
+                      <span className="text-sm text-gray-700">Check if a license is required</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Skill Category and Skill */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="skillCategory">Skill Category</Label>
+                    <select
+                      id="skillCategory"
+                      value={newJob.skillCategory}
+                      onChange={(e) => setNewJob({ ...newJob, skillCategory: e.target.value, skillName: '' })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">Select category</option>
+                      {Array.from(new Set(parameters.skills.map(s => s.category))).sort().map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="skillName">Skill</Label>
+                    <select
+                      id="skillName"
+                      value={newJob.skillName}
+                      onChange={(e) => setNewJob({ ...newJob, skillName: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">Select skill</option>
+                      {(newJob.skillCategory ? parameters.skills.filter(s => s.category === newJob.skillCategory) : parameters.skills).map(s => (
+                        <option key={s.id} value={s.name}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Tags Input */}
+                <div className="space-y-2">
+                  <Label htmlFor="tagsInput">Tags (comma-separated)</Label>
+                  <Input
+                    id="tagsInput"
+                    value={newJob.tagsInput}
+                    onChange={(e) => setNewJob({ ...newJob, tagsInput: e.target.value })}
+                    placeholder="e.g. React, Remote, Senior"
+                  />
+                  <p className="text-xs text-gray-500">Used for filtering and search. Keep them short.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="jobDescription">Job Description</Label>
+                  <Textarea
+                    id="jobDescription"
+                    value={newJob.description}
+                    onChange={(e) => setNewJob({ ...newJob, description: e.target.value })}
+                    placeholder="Enter job description"
+                    rows={4}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="jobRequirements">Requirements</Label>
+                  <Textarea
+                    id="jobRequirements"
+                    value={newJob.requirements}
+                    onChange={(e) => setNewJob({ ...newJob, requirements: e.target.value })}
+                    placeholder="Enter job requirements"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="jobDeadline">Application Deadline</Label>
+                  <Input
+                    id="jobDeadline"
+                    type="date"
+                    value={newJob.deadline}
+                    onChange={(e) => setNewJob({ ...newJob, deadline: e.target.value })}
+                  />
+                </div>
+
+                {/* Job Cover Image Upload */}
+                <div className="space-y-2">
+                  <Label>Job Cover Image</Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    {newJob.coverImage ? (
+                      <div className="space-y-2">
+                        <div className="w-full h-32 mx-auto bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                          <ImageWithFallback
+                            src={URL.createObjectURL(newJob.coverImage)}
+                            alt="Job Cover"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <p className="text-sm text-gray-600">{newJob.coverImage.name}</p>
+                        {newCoverDims && (
+                          <p className="text-xs text-gray-500">Selected size: {newCoverDims.w}x{newCoverDims.h}px • Recommended: 1200x600px • Max: 5MB</p>
+                        )}
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => { setNewJob({ ...newJob, coverImage: null }); setNewCoverDims(null); }}
+                        >
+                          Remove Image
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600">Upload job cover image</p>
+                        <p className="text-sm text-gray-500">JPG, PNG up to 5MB. Recommended size: 1200x600px</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0] || null;
+                            setNewJob({ ...newJob, coverImage: file });
+                            setNewCoverDims(null);
+                            if (file) {
+                              const img = new Image();
+                              img.onload = () => setNewCoverDims({ w: img.naturalWidth, h: img.naturalHeight });
+                              img.src = URL.createObjectURL(file);
+                            }
+                          }}
+                          className="hidden"
+                          id="job-cover-upload-inline-page"
+                        />
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          onClick={() => document.getElementById('job-cover-upload-inline-page')?.click()}
+                          className="mt-2"
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Choose Image
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => {
+                    setNewJob({
+                      title: '',
+                      company: '',
+                      location: '',
+                      description: '',
+                      requirements: '',
+                      salary: '',
+                      salaryType: 'exact',
+                      salaryMin: '',
+                      salaryMax: '',
+                      payType: 'Monthly',
+                      tier: 'latest',
+                      type: 'Full Time',
+                      category: '',
+                      experience: '',
+                      jobLevel: '',
+                      skillCategory: '',
+                      skillName: '',
+                      tagsInput: '',
+                      licenseRequired: false,
+                      deadline: '',
+                      featured: false,
+                      urgent: false,
+                      coverImage: null
+                    });
+                    setNewCoverDims(null);
+                  }}>Reset</Button>
+                  <Button onClick={handleCreateJob}>Create Job</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>

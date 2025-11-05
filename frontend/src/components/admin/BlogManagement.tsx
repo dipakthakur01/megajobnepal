@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dbService } from '@/lib/db-service';
+import { blogService } from '@/services/blogService';
 
 export function BlogManagement() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,60 +40,89 @@ export function BlogManagement() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<any>(null);
 
-  // Load blogs/news from local storage (via dbService)
-  const [blogs, setBlogs] = useState<any[]>(() => {
-    try {
-      const data = dbService.getBlogs?.();
-      return Array.isArray(data) && data.length ? data : [
-        {
-          id: '1',
-          title: 'Top 10 Interview Tips for Job Seekers in Nepal',
-          slug: 'top-10-interview-tips-nepal',
-          excerpt: 'Master the art of job interviews with these proven tips specifically tailored for the Nepali job market.',
-          content: 'Full content here...',
-          author: 'Admin User',
-          category: 'Career Tips',
-          status: 'published',
-          publishDate: '2024-01-15',
-          views: 1234,
-          featured: true,
-          tags: ['interview', 'career', 'tips'],
-          seoTitle: 'Top 10 Interview Tips for Job Seekers in Nepal - MegaJobNepal',
-          seoDescription: 'Master job interviews in Nepal with these expert tips...'
-        },
-        {
-          id: '2',
-          title: 'IT Job Market Trends in Nepal 2024',
-          slug: 'it-job-market-trends-nepal-2024',
-          excerpt: 'Explore the latest trends and opportunities in the IT sector across Nepal.',
-          content: 'Full content here...',
-          author: 'Content Manager',
-          category: 'Industry News',
-          status: 'published',
-          publishDate: '2024-01-12',
-          views: 987,
-          featured: false,
-          tags: ['IT', 'market', 'trends'],
-          seoTitle: 'IT Job Market Trends in Nepal 2024 - MegaJobNepal',
-          seoDescription: 'Latest IT job trends in Nepal...'
-        }
-      ];
-    } catch {
-      return [];
+  // Backend+mock powered blogs/news
+  const defaultMockBlogs = [
+    {
+      id: '1',
+      title: 'Top 10 Interview Tips for Job Seekers in Nepal',
+      slug: 'top-10-interview-tips-nepal',
+      excerpt: 'Master the art of job interviews with these proven tips specifically tailored for the Nepali job market.',
+      content: 'Full content here...',
+      author: 'Admin User',
+      category: 'Career Tips',
+      status: 'published',
+      publishDate: '2024-01-15',
+      views: 1234,
+      featured: true,
+      tags: ['interview', 'career', 'tips'],
+      seoTitle: 'Top 10 Interview Tips for Job Seekers in Nepal - MegaJobNepal',
+      seoDescription: 'Master job interviews in Nepal with these expert tips...'
+    },
+    {
+      id: '2',
+      title: 'IT Job Market Trends in Nepal 2024',
+      slug: 'it-job-market-trends-nepal-2024',
+      excerpt: 'Explore the latest trends and opportunities in the IT sector across Nepal.',
+      content: 'Full content here...',
+      author: 'Content Manager',
+      category: 'Industry News',
+      status: 'published',
+      publishDate: '2024-01-12',
+      views: 987,
+      featured: false,
+      tags: ['IT', 'market', 'trends'],
+      seoTitle: 'IT Job Market Trends in Nepal 2024 - MegaJobNepal',
+      seoDescription: 'Latest IT job trends in Nepal...'
     }
-  });
-  const [news, setNews] = useState<any[]>(() => {
-    try {
-      const data = dbService.getNews?.();
-      return Array.isArray(data) ? data : [];
-    } catch { return []; }
-  });
+  ];
+
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
 
   useEffect(() => {
     // keep localStorage in sync when blogs or news change
     try { dbService.saveBlogs?.(blogs); } catch { /* noop */ }
     try { dbService.saveNews?.(news); } catch { /* noop */ }
   }, [blogs, news]);
+
+  useEffect(() => {
+    const normalize = (b: any) => ({
+      ...b,
+      id: b?.id || b?._id || String(b?._id || b?.id || Date.now())
+    });
+    const loadBlogs = async () => {
+      try {
+        const res = await blogService.list({ limit: 100 });
+        const list = Array.isArray(res) ? res : (res?.blogs || res?.items || []);
+        if (Array.isArray(list) && list.length) {
+          setBlogs(list.map(normalize));
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to load blogs from backend, falling back:', err);
+      }
+      try {
+        const local = await dbService.getBlogs?.({ limit: 100 });
+        if (Array.isArray(local) && local.length) {
+          setBlogs(local.map(normalize));
+          return;
+        }
+      } catch {}
+      setBlogs(defaultMockBlogs);
+    };
+
+    const loadNews = async () => {
+      try {
+        const res = await dbService.getNews?.({ limit: 100 });
+        if (Array.isArray(res)) setNews(res);
+      } catch {
+        setNews([]);
+      }
+    };
+
+    loadBlogs();
+    loadNews();
+  }, []);
 
   const [newPost, setNewPost] = useState({
     title: '',
@@ -126,56 +156,114 @@ export function BlogManagement() {
     return matchesSearch && matchesStatus && matchesCategory;
   });
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!newPost.title.trim()) {
       toast.error('Title is required');
       return;
     }
-    const post = {
-      id: Date.now().toString(),
-      ...newPost,
+    const payload: any = {
+      title: newPost.title,
+      slug: newPost.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+      excerpt: newPost.excerpt,
+      content: newPost.content,
+      author: 'Super Admin',
+      category: newPost.category,
+      status: newPost.status,
+      published: newPost.status === 'published',
+      published_at: new Date().toISOString(),
+      featured: newPost.featured,
       tags: newPost.tags.split(',').map(t => t.trim()).filter(Boolean),
-      publishDate: new Date().toISOString(),
-      views: 0,
-      author: 'Super Admin'
+      seoTitle: newPost.seoTitle,
+      seoDescription: newPost.seoDescription
     };
-    setBlogs([post, ...blogs]);
-    setNewPost({ title: '', excerpt: '', content: '', category: '', tags: '', featured: false, seoTitle: '', seoDescription: '', status: 'draft' });
-    toast.success('Blog post created');
-    setIsCreateOpen(false);
+    try {
+      const created = await blogService.create(payload);
+      const normalized = (Array.isArray(created) ? created[0] : created) || payload;
+      setBlogs([ { ...(normalized as any), id: (normalized as any)?.id || (normalized as any)?._id || String(Date.now()) }, ...blogs ]);
+      setNewPost({ title: '', excerpt: '', content: '', category: '', tags: '', featured: false, seoTitle: '', seoDescription: '', status: 'draft' });
+      toast.success('Blog post created');
+      setIsCreateOpen(false);
+    } catch (err: any) {
+      console.error('Create blog failed, saving locally:', err);
+      const fallback = {
+        id: Date.now().toString(),
+        ...payload
+      };
+      setBlogs([fallback, ...blogs]);
+      setIsCreateOpen(false);
+      toast.warning('Backend unavailable. Created locally as fallback.');
+    }
   };
 
   const handleEditPost = (post: any) => {
     setEditingPost({ ...post, tags: Array.isArray(post.tags) ? post.tags.join(', ') : (post.tags || '') });
   };
 
-  const handleUpdatePost = () => {
+  const handleUpdatePost = async () => {
     if (!editingPost) return;
-
-    setBlogs(blogs.map(blog => 
-      blog.id === editingPost.id 
-        ? {
-            ...editingPost,
-            tags: editingPost.tags.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag)
-          }
-        : blog
-    ));
-    setEditingPost(null);
-    toast.success('Blog post updated successfully!');
+    const id = editingPost.id || editingPost._id;
+    const updatePayload: any = {
+      title: editingPost.title,
+      excerpt: editingPost.excerpt,
+      content: editingPost.content,
+      category: editingPost.category,
+      status: editingPost.status,
+      featured: !!editingPost.featured,
+      tags: String(editingPost.tags || '').split(',').map((t: string) => t.trim()).filter(Boolean)
+    };
+    try {
+      await blogService.update(id, updatePayload);
+      setBlogs(blogs.map(blog => 
+        (blog.id === id || blog._id === id)
+          ? { ...blog, ...updatePayload }
+          : blog
+      ));
+      setEditingPost(null);
+      toast.success('Blog post updated successfully!');
+    } catch (err) {
+      console.error('Update blog failed, applying local change:', err);
+      setBlogs(blogs.map(blog => 
+        (blog.id === id || blog._id === id)
+          ? { ...blog, ...updatePayload }
+          : blog
+      ));
+      setEditingPost(null);
+      toast.warning('Backend unavailable. Updated locally as fallback.');
+    }
   };
 
-  const handleDeletePost = (id: string) => {
-    setBlogs(blogs.filter(blog => blog.id !== id));
-    toast.success('Blog post deleted successfully!');
+  const handleDeletePost = async (id: string) => {
+    try {
+      await blogService.remove(id);
+      setBlogs(blogs.filter(blog => (blog.id !== id && blog._id !== id)));
+      toast.success('Blog post deleted successfully!');
+    } catch (err) {
+      console.error('Delete blog failed, removing locally:', err);
+      setBlogs(blogs.filter(blog => (blog.id !== id && blog._id !== id)));
+      toast.warning('Backend unavailable. Deleted locally as fallback.');
+    }
   };
 
-  const togglePostStatus = (id: string) => {
-    setBlogs(blogs.map(blog => 
-      blog.id === id 
-        ? { ...blog, status: blog.status === 'published' ? 'draft' : 'published' }
-        : blog
-    ));
-    toast.success('Post status updated!');
+  const togglePostStatus = async (id: string) => {
+    const current = blogs.find(b => b.id === id || b._id === id);
+    const newStatus = current?.status === 'published' ? 'draft' : 'published';
+    try {
+      await blogService.update(id, { status: newStatus, published: newStatus === 'published' });
+      setBlogs(blogs.map(blog => 
+        (blog.id === id || blog._id === id) 
+          ? { ...blog, status: newStatus }
+          : blog
+      ));
+      toast.success('Post status updated!');
+    } catch (err) {
+      console.error('Status toggle failed, applying locally:', err);
+      setBlogs(blogs.map(blog => 
+        (blog.id === id || blog._id === id) 
+          ? { ...blog, status: newStatus }
+          : blog
+      ));
+      toast.warning('Backend unavailable. Status updated locally.');
+    }
   };
 
   const renderPostForm = (post: any, setPost: (next: any) => void) => (

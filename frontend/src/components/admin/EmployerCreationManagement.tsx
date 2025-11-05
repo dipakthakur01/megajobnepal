@@ -179,6 +179,19 @@ export function EmployerCreationManagement({
     employer.company?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Pagination for Employers list
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
+  const totalPages = Math.ceil(filteredEmployers.length / itemsPerPage) || 1;
+  const paginatedEmployers = filteredEmployers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, itemsPerPage]);
+
   const handleCreateEmployer = async () => {
     try {
       // Validate required fields
@@ -807,10 +820,11 @@ export function EmployerCreationManagement({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredEmployers.map((employer) => (
+            {paginatedEmployers.map((employer, idx) => (
               <div key={employer.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-4">
+                    <div className="text-sm text-gray-600 w-6 text-center">{(currentPage - 1) * itemsPerPage + idx + 1}</div>
                     <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-semibold">
                       {employer.firstName?.charAt(0) || 'E'}{employer.lastName?.charAt(0) || 'M'}
                     </div>
@@ -897,6 +911,69 @@ export function EmployerCreationManagement({
                 </div>
               </div>
             ))}
+
+            {filteredEmployers.length > 0 && (
+              <div className="flex items-center justify-between px-2 py-3 border-t mt-2">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>Show</span>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                    className="px-2 py-1 border rounded-md bg-white"
+                  >
+                    {[10, 25, 50, 100].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <span>entries</span>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Showing {filteredEmployers.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}
+                  {" "}to{" "}
+                  {Math.min(currentPage * itemsPerPage, filteredEmployers.length)} of {filteredEmployers.length} entries
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 7).map(page => (
+                    <Button
+                      key={page}
+                      variant={page === currentPage ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  {totalPages > 7 && (
+                    <>
+                      <span className="px-2 text-gray-500">...</span>
+                      <Button
+                        variant={totalPages === currentPage ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
             
             {filteredEmployers.length === 0 && (
               <div className="text-center py-8">

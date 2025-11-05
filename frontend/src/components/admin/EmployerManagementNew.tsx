@@ -25,7 +25,7 @@ import {
   Globe
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
 import { apiClient } from '../../lib/api-client';
@@ -49,6 +49,7 @@ export function EmployerManagementNew({
   const [statusFilter, setStatusFilter] = useState('all');
   const [verificationFilter, setVerificationFilter] = useState('all');
   const [industryFilter, setIndustryFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState<'list' | 'verification' | 'add'>('list');
   const DEFAULT_INDUSTRIES = [
     'Technology','Healthcare','Finance','Education','Manufacturing','Retail',
     'Construction','Transportation','Hospitality','Media','Government','Non-profit',
@@ -56,7 +57,7 @@ export function EmployerManagementNew({
   ];
   const [industryOptions, setIndustryOptions] = useState<string[]>(DEFAULT_INDUSTRIES);
   // New modal and form state
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  // Inline tab replaces previous add modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<any | null>(null);
@@ -138,6 +139,19 @@ export function EmployerManagementNew({
     return matchesSearch && matchesStatus && matchesVerification && matchesIndustry;
   });
 
+  // Pagination for Companies table
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [itemsPerPage, setItemsPerPage] = React.useState(10);
+  const totalPages = Math.ceil(filteredCompanies.length / itemsPerPage) || 1;
+  const paginatedCompanies = filteredCompanies.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, verificationFilter, industryFilter, itemsPerPage]);
+
   // Upload logo helper
   const uploadLogoForCompany = async (companyId: string) => {
     if (!logoFile) return null;
@@ -179,7 +193,7 @@ export function EmployerManagementNew({
       const logoUpdated = await uploadLogoForCompany(getId(newCompany));
       if (logoUpdated) newCompany = logoUpdated;
       onCompanyUpdate([...(companies || []), newCompany]);
-      setIsAddModalOpen(false);
+      setActiveTab('list');
       setFormData({
         name: '', email: '', phone: '', address: '', website: '', description: '', industry: '', company_size: '', verified: false, status: 'active'
       });
@@ -208,7 +222,7 @@ export function EmployerManagementNew({
       verified: Boolean(company?.verified),
       status: safeString(company?.status || 'active')
     });
-    setIsEditModalOpen(true);
+    setActiveTab('edit');
   };
 
   // Update company via admin API
@@ -222,7 +236,7 @@ export function EmployerManagementNew({
       if (logoUpdated) updatedCompany = logoUpdated;
       const updatedCompanies = (companies || []).map(c => (getId(c) === id ? updatedCompany : c));
       onCompanyUpdate(updatedCompanies);
-      setIsEditModalOpen(false);
+      setActiveTab('list');
       setSelectedCompany(null);
       setLogoFile(null);
       toast.success('Company updated successfully');
@@ -369,83 +383,11 @@ export function EmployerManagementNew({
             <Users className="h-4 w-4 mr-2" />
             Reset Employers
           </Button>
-          {/* Add Company CTA */}
-          <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                <Upload className="h-4 w-4 mr-2" />
-                Add Company
-              </Button>
-            </DialogTrigger>
-            <DialogContent dir="ltr" className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Company</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Company Name *</label>
-                    <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Mega Job Nepal Pvt. Ltd." />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Email *</label>
-                    <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="company@example.com" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Phone</label>
-                    <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+977-1-XXXXXXX" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Website</label>
-                    <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://example.com" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Address</label>
-                    <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="City, Province, Country" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Industry</label>
-                    <Select value={formData.industry} onValueChange={(v) => setFormData({ ...formData, industry: v })}>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {industryOptions.map(i => (
-                          <SelectItem key={i} value={i}>{i}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Company Size</label>
-                    <Select value={formData.company_size} onValueChange={(v) => setFormData({ ...formData, company_size: v })}>
-                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {['1-10','11-50','51-200','201-500','501-1000','1000+'].map(s => (
-                          <SelectItem key={s} value={s}>{s}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Description</label>
-                    <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description about the company" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium mb-1">Logo</label>
-                    <Input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
-                    {logoFile && (
-                      <Button type="button" variant="ghost" className="mt-2" onClick={() => setLogoFile(null)}>Remove</Button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-2 pt-2">
-                  <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
-                  <Button onClick={handleAddCompany} disabled={loading}>
-                    {loading ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Adding...</>) : 'Add Company'}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
+          {/* Add Company CTA -> inline tab */}
+          <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setActiveTab('add')}>
+            <Upload className="h-4 w-4 mr-2" />
+            Add Company
+          </Button>
         </div>
       </div>
 
@@ -503,11 +445,86 @@ export function EmployerManagementNew({
         </Card>
       </div>
 
-      <Tabs defaultValue="list" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="list">Company List</TabsTrigger>
           <TabsTrigger value="verification">Verification Queue</TabsTrigger>
+          <TabsTrigger value="add">+ Add Company</TabsTrigger>
         </TabsList>
+
+        {/* Inline Add Company */}
+        <TabsContent value="add">
+          <Card>
+            <CardHeader>
+              <CardTitle>Add New Company</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Company Name *</label>
+                    <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Mega Job Nepal Pvt. Ltd." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email *</label>
+                    <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="company@example.com" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone</label>
+                    <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+977-1-XXXXXXX" />
+                  </div>
+                  <div>
+                    <label className="block text sm font-medium mb-1">Website</label>
+                    <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://example.com" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Address</label>
+                    <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="City, Province, Country" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Industry</label>
+                    <Select value={formData.industry} onValueChange={(v) => setFormData({ ...formData, industry: v })}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {industryOptions.map(i => (
+                          <SelectItem key={i} value={i}>{i}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Company Size</label>
+                    <Select value={formData.company_size} onValueChange={(v) => setFormData({ ...formData, company_size: v })}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['1-10','11-50','51-200','201-500','501-1000','1000+'].map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Description</label>
+                    <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description about the company" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Logo</label>
+                    <Input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
+                    {logoFile && (
+                      <Button type="button" variant="ghost" className="mt-2" onClick={() => setLogoFile(null)}>Remove</Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2 pt-2">
+                  <Button variant="outline" onClick={() => setActiveTab('list')}>Cancel</Button>
+                  <Button onClick={handleAddCompany} disabled={loading}>
+                    {loading ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Adding...</>) : 'Add Company'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         {/* Company List */}
         <TabsContent value="list" className="space-y-6">
@@ -569,6 +586,7 @@ export function EmployerManagementNew({
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
+                      <th className="text-left py-3 px-4">#</th>
                       <th className="text-left py-3 px-4">Company</th>
                       <th className="text-left py-3 px-4">Contact</th>
                       <th className="text-left py-3 px-4">Industry</th>
@@ -580,8 +598,11 @@ export function EmployerManagementNew({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredCompanies.map(company => (
+                    {paginatedCompanies.map((company, idx) => (
                       <tr key={getId(company) || company.name} className="border-b hover:bg-gray-50">
+                        <td className="py-3 px-4 text-sm text-gray-600">
+                          {(currentPage - 1) * itemsPerPage + idx + 1}
+                        </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center space-x-3">
                             {company.logo_url || company.logo || company.logoUrl ? (
@@ -690,6 +711,69 @@ export function EmployerManagementNew({
                   </tbody>
                 </table>
               </div>
+              {/* Pagination Controls */}
+              {filteredCompanies.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t mt-2">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>Show</span>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                      className="px-2 py-1 border rounded-md bg-white"
+                    >
+                      {[10, 25, 50, 100].map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
+                    <span>entries</span>
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    Showing {filteredCompanies.length === 0 ? 0 : ((currentPage - 1) * itemsPerPage) + 1}
+                    {" "}to{" "}
+                    {Math.min(currentPage * itemsPerPage, filteredCompanies.length)} of {filteredCompanies.length} entries
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Previous
+                    </Button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 7).map(page => (
+                      <Button
+                        key={page}
+                        variant={page === currentPage ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                    {totalPages > 7 && (
+                      <>
+                        <span className="px-2 text-gray-500">...</span>
+                        <Button
+                          variant={totalPages === currentPage ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setCurrentPage(totalPages)}
+                        >
+                          {totalPages}
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -787,6 +871,78 @@ export function EmployerManagementNew({
                     </div>
                   </div>
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Edit Company Tab */}
+        <TabsContent value="edit">
+          <Card>
+            <CardHeader>
+              <CardTitle>Edit Company</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Company Name *</label>
+                    <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Mega Job Nepal Pvt. Ltd." />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Email *</label>
+                    <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="company@example.com" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Phone</label>
+                    <Input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} placeholder="+977-1-XXXXXXX" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Website</label>
+                    <Input value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} placeholder="https://example.com" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Address</label>
+                    <Input value={formData.address} onChange={(e) => setFormData({ ...formData, address: e.target.value })} placeholder="City, Province, Country" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Industry</label>
+                    <Select value={formData.industry} onValueChange={(v) => setFormData({ ...formData, industry: v })}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {industryOptions.map(i => (
+                          <SelectItem key={i} value={i}>{i}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Company Size</label>
+                    <Select value={formData.company_size} onValueChange={(v) => setFormData({ ...formData, company_size: v })}>
+                      <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {['1-10','11-50','51-200','201-500','501-1000','1000+'].map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Description</label>
+                    <Textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description about the company" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium mb-1">Logo</label>
+                    <Input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} />
+                    {logoFile && (
+                      <Button type="button" variant="ghost" className="mt-2" onClick={() => setLogoFile(null)}>Remove</Button>
+                    )}
+                  </div>
+                </div>
+                <div className="flex justify-end space-x-2 pt-2">
+                  <Button variant="outline" onClick={() => setActiveTab('list')}>Cancel</Button>
+                  <Button onClick={handleEditCompany} disabled={loading}>{loading ? (<><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Saving...</>) : 'Save Changes'}</Button>
+                </div>
               </div>
             </CardContent>
           </Card>

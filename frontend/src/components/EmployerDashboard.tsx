@@ -108,6 +108,7 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
   const [salaryMin, setSalaryMin] = useState<string>('');
   const [salaryMax, setSalaryMax] = useState<string>('');
   const [salary, setSalary] = useState<string>('');
+  const [payType, setPayType] = useState<string>('Monthly');
   const [publishingJob, setPublishingJob] = useState(false);
   const [jobErrors, setJobErrors] = useState<Record<string, string>>({});
   const [deadline, setDeadline] = useState<string>('');
@@ -477,11 +478,11 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
           if (salaryType === 'range' && salaryMin && salaryMax) {
             const mi = parseInt(String(salaryMin));
             const ma = parseInt(String(salaryMax));
-            if (!isNaN(mi) && !isNaN(ma)) return `${currency} ${mi.toLocaleString()} - ${ma.toLocaleString()}`;
+            if (!isNaN(mi) && !isNaN(ma)) return `${currency} ${mi.toLocaleString()} - ${ma.toLocaleString()} ${payType}`;
           }
           if (salaryType === 'exact' && salary) {
             const amt = parseInt(String(salary));
-            if (!isNaN(amt)) return `${currency} ${amt.toLocaleString()}`;
+            if (!isNaN(amt)) return `${currency} ${amt.toLocaleString()} ${payType}`;
           }
           return '';
         })(),
@@ -504,6 +505,7 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
       setSalary('');
       setSalaryMin('');
       setSalaryMax('');
+      setPayType('Monthly');
       setEmploymentType('full-time');
       setExperienceLevel('entry');
       setCategoryId('');
@@ -785,40 +787,57 @@ export function EmployerDashboard({ user, jobs, applications, onApplicationUpdat
                     {jobErrors.deadline && <div className="text-red-600 text-xs mt-1">{jobErrors.deadline}</div>}
                   </div>
                   <div>
-                    <Label>Salary</Label>
+                    <Label>Offered Salary</Label>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <Label>Salary Type</Label>
-                        <Select value={salaryType} onValueChange={(v)=>setSalaryType(v)}>
-                          <SelectTrigger><SelectValue placeholder="Select type"/></SelectTrigger>
+                        <Label>Pay Type</Label>
+                        <Select value={payType} onValueChange={(v)=>setPayType(v)}>
+                          <SelectTrigger><SelectValue placeholder="Select Pay Type"/></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="range">Salary Range</SelectItem>
-                            <SelectItem value="exact">Fixed Salary</SelectItem>
-                            <SelectItem value="negotiable">Negotiable</SelectItem>
-                            <SelectItem value="competitive">Competitive</SelectItem>
+                            <SelectItem value="Monthly">Monthly</SelectItem>
+                            <SelectItem value="Weekly">Weekly</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      <div/>
+                      <div>
+                        <Label>Salary Range</Label>
+                        <Select onValueChange={(v)=>{
+                          if (v === 'Negotiable') {
+                            setSalaryType('negotiable');
+                            setSalary('');
+                            setSalaryMin('');
+                            setSalaryMax('');
+                          } else {
+                            const [minStr, maxStr] = v.split('-');
+                            const min = (minStr||'').replace(/[^0-9]/g,'');
+                            const max = (maxStr||'').replace(/[^0-9]/g,'');
+                            setSalaryType('range');
+                            setSalary('');
+                            setSalaryMin(min);
+                            setSalaryMax(max);
+                          }
+                        }}>
+                          <SelectTrigger>
+                            <SelectValue placeholder={salaryType === 'negotiable' ? 'Negotiable' : (salaryMin && salaryMax ? `${salaryMin}-${salaryMax}` : 'Select Salary Range')}/>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Negotiable">Negotiable</SelectItem>
+                            <SelectItem value="10000-20000">10,000-20,000</SelectItem>
+                            <SelectItem value="20000-30000">20,000-30,000</SelectItem>
+                            <SelectItem value="30000-40000">30,000-40,000</SelectItem>
+                            <SelectItem value="40000-50000">40,000-50,000</SelectItem>
+                            <SelectItem value="50000-60000">50,000-60,000</SelectItem>
+                            <SelectItem value="60000-70000">60,000-70,000</SelectItem>
+                            <SelectItem value="70000-80000">70,000-80,000</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    {salaryType === 'range' && (
-                      <div className="grid grid-cols-2 gap-2 mt-2">
-                        <div>
-                          <Label>Minimum (NPR)</Label>
-                          <Input type="number" value={salaryMin} onChange={(e)=>setSalaryMin(e.target.value)} placeholder="e.g. 50000"/>
-                        </div>
-                        <div>
-                          <Label>Maximum (NPR)</Label>
-                          <Input type="number" value={salaryMax} onChange={(e)=>setSalaryMax(e.target.value)} placeholder="e.g. 80000"/>
-                        </div>
-                      </div>
-                    )}
-                    {salaryType === 'exact' && (
-                      <div className="mt-2">
-                        <Label>Amount (NPR)</Label>
-                        <Input type="number" value={salary} onChange={(e)=>setSalary(e.target.value)} placeholder="e.g. 60000"/>
-                      </div>
-                    )}
+                    <div className="mt-2">
+                      <Label>Salary Amount (NPR)</Label>
+                      <Input type="number" value={salary} onChange={(e)=>{setSalary(e.target.value); setSalaryType('exact'); setSalaryMin(''); setSalaryMax('');}} placeholder="e.g. 60000"/>
+                      <div className="text-xs text-muted-foreground mt-1">Enter a fixed amount or use the range/negotiable dropdowns.</div>
+                    </div>
                     {(salaryType === 'negotiable' || salaryType === 'competitive') && (
                       <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded">
                         <div className="text-xs text-blue-700">
