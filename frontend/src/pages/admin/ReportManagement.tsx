@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -15,6 +15,7 @@ import {
   Filter,
   RefreshCw
 } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 interface ReportManagementProps {
   jobs: any[];
@@ -26,67 +27,127 @@ interface ReportManagementProps {
 export function ReportManagement({ jobs, users, applications, companies }: ReportManagementProps) {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [dashboardStats, setDashboardStats] = useState<any>(null);
+  const [jobStats, setJobStats] = useState<any>(null);
 
-  // Mock analytics data
-  const analytics = {
-    jobAnalytics: {
-      totalJobs: jobs.length + 245,
-      activeJobs: jobs.filter(j => j.status === 'active').length + 189,
-      expiredJobs: 56,
-      pendingJobs: jobs.filter(j => j.status === 'pending').length + 12,
-      byTier: {
-        MegaJob: 23,
-        PremiumJob: 45,
-        PrimeJob: 67,
-        LatestJobs: 134,
-        NewspaperJobs: 76
-      },
-      byCategory: {
-        'Information Technology': 89,
-        'Banking & Finance': 67,
-        'Healthcare': 45,
-        'Education': 56,
-        'Manufacturing': 34,
-        'Others': 54
-      }
-    },
-    userAnalytics: {
-      totalUsers: users.length + 1245,
-      activeUsers: 1089,
-      newUsersThisMonth: 156,
-      jobSeekers: 987,
-      employers: companies.length + 89,
-      verifiedUsers: 876,
-      byLocation: {
-        'Kathmandu': 456,
-        'Pokhara': 234,
-        'Lalitpur': 189,
-        'Bhaktapur': 123,
-        'Biratnagar': 98,
-        'Others': 145
-      }
-    },
-    applicationAnalytics: {
-      totalApplications: applications.length + 3456,
-      pendingApplications: 234,
-      approvedApplications: 2134,
-      rejectedApplications: 1088,
-      averagePerJob: 14.2,
-      conversionRate: 12.5
-    },
-    revenueAnalytics: {
-      totalRevenue: 2456000,
-      monthlyRevenue: 345000,
-      yearlyGrowth: 23.5,
-      byJobTier: {
-        MegaJob: 575000,
-        PremiumJob: 675000,
-        PrimeJob: 468000,
-        LatestJobs: 534000,
-        NewspaperJobs: 204000
-      }
+  const normalizeTier = (tier: any) => {
+    const t = String(tier || '').toLowerCase();
+    if (t === 'mega_job' || t === 'megajob') return 'megajob';
+    if (t === 'premium' || t === 'premium_job') return 'premium';
+    if (t === 'prime' || t === 'prime_job') return 'prime';
+    if (t === 'newspaper' || t === 'newspaper_job') return 'newspaper';
+    return t || 'latest';
+  };
+
+  const expiredJobsCount = useMemo(() => {
+    const now = Date.now();
+    return jobs.filter((j: any) => {
+      const deadline = j?.deadline || j?.application_deadline || j?.expires_at;
+      if (!deadline) return false;
+      const ts = new Date(deadline).getTime();
+      return Number.isFinite(ts) && ts < now;
+    }).length;
+  }, [jobs]);
+
+  const loadStats = async () => {
+    setLoading(true);
+    try {
+      const [dashRes, jobRes] = await Promise.all([
+        apiClient.getAdminDashboardStats().catch(() => null),
+        apiClient.getAdminJobStats().catch(() => null)
+      ]);
+      setDashboardStats(dashRes);
+      setJobStats(jobRes?.data || jobRes);
+    } catch (err) {
+      console.warn('Failed to load reports stats:', err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const analytics = useMemo(() => {
+    const totalJobs = jobStats?.total ?? dashboardStats?.totalJobs ?? jobs.length;
+    const pendingJobs = jobStats?.pending ?? jobs.filter((j: any) => String(j?.status || '').toLowerCase() === 'pending').length;
+    const activeJobs = jobs.filter((j: any) => String(j?.status || '').toLowerCase() === 'active').length;
+
+    const byTierRaw = jobStats?.by_tier || {};
+    const megajob = byTierRaw?.megajob ?? jobs.filter((j: any) => normalizeTier(j?.tier) === 'megajob').length;
+    const premium = byTierRaw?.premium ?? jobs.filter((j: any) => normalizeTier(j?.tier) === 'premium').length;
+    const prime = byTierRaw?.prime ?? jobs.filter((j: any) => normalizeTier(j?.tier) === 'prime').length;
+    const newspaper = byTierRaw?.newspaper ?? jobs.filter((j: any) => normalizeTier(j?.tier) === 'newspaper').length;
+    const latest = jobs.length;
+
+    const totalUsers = dashboardStats?.totalUsers ?? users.length;
+    const activeUsers = dashboardStats?.activeUsers ?? users.filter((u: any) => String(u?.status || '').toLowerCase() === 'active').length;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const newUsersThisMonth = users.filter((u: any) => {
+      const d = new Date(u?.created_at || u?.joinedDate || u?.joined_date);
+      return Number.isFinite(d.getTime()) && d >= thirtyDaysAgo;
+    }).length;
+    const jobSeekers = users.filter((u: any) => {
+      const t = String((u as any)?.user_type || (u as any)?.type || '').toLowerCase();
+      return t === 'job_seeker' || t === 'jobseeker';
+    }).length;
+    const employers = dashboardStats?.totalCompanies ?? companies.length;
+    const verifiedUsers = users.filter((u: any) => (u as any)?.isVerified === true).length;
+
+    const totalApplications = dashboardStats?.totalApplications ?? applications.length;
+    const pendingApplications = applications.filter((a: any) => String(a?.status || '').toLowerCase() === 'pending').length;
+    const approvedApplications = applications.filter((a: any) => String(a?.status || '').toLowerCase() === 'accepted').length;
+    const rejectedApplications = applications.filter((a: any) => String(a?.status || '').toLowerCase() === 'rejected').length;
+    const averagePerJob = totalJobs > 0 ? Number((totalApplications / totalJobs).toFixed(1)) : 0;
+    const conversionRate = totalApplications > 0 ? Number(((approvedApplications / totalApplications) * 100).toFixed(1)) : 0;
+
+    return {
+      jobAnalytics: {
+        totalJobs,
+        activeJobs,
+        expiredJobs: expiredJobsCount,
+        pendingJobs,
+        byTier: {
+          MegaJob: megajob,
+          PremiumJob: premium,
+          PrimeJob: prime,
+          LatestJobs: latest,
+          NewspaperJobs: newspaper
+        }
+      },
+      userAnalytics: {
+        totalUsers,
+        activeUsers,
+        newUsersThisMonth,
+        jobSeekers,
+        employers,
+        verifiedUsers
+      },
+      applicationAnalytics: {
+        totalApplications,
+        pendingApplications,
+        approvedApplications,
+        rejectedApplications,
+        averagePerJob,
+        conversionRate
+      },
+      revenueAnalytics: {
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        yearlyGrowth: 0,
+        byJobTier: {
+          MegaJob: 0,
+          PremiumJob: 0,
+          PrimeJob: 0,
+          LatestJobs: 0,
+          NewspaperJobs: 0
+        }
+      }
+    };
+  }, [jobs, users, applications, companies, dashboardStats, jobStats, expiredJobsCount]);
 
   const reportTemplates = [
     {
@@ -190,9 +251,9 @@ export function ReportManagement({ jobs, users, applications, companies }: Repor
             <option value="quarter">This Quarter</option>
             <option value="year">This Year</option>
           </select>
-          <Button variant="outline">
+          <Button variant="outline" onClick={loadStats} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh Data
+            {loading ? 'Refreshing...' : 'Refresh Data'}
           </Button>
         </div>
       </div>

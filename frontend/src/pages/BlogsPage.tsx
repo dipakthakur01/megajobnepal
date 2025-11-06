@@ -42,7 +42,7 @@ export function BlogsPage({ onNavigate }: BlogsPageProps) {
     (async () => {
       try {
         setIsLoading(true);
-        const res = await apiClient.getBlogs({ status: 'published', limit: 50 });
+        const res = await apiClient.getBlogs({ status: 'published', limit: 20 });
         const incoming = Array.isArray(res?.blogs) ? res.blogs : (Array.isArray(res) ? res : []);
         setPersistedPosts(incoming);
         setError(null);
@@ -54,6 +54,10 @@ export function BlogsPage({ onNavigate }: BlogsPageProps) {
     })();
   }, []);
 
+  /*
+   * Static mock blog posts removed to avoid heavy client-side payloads
+   * and ensure the page uses backend-only data.
+   */
   const blogPosts = [
     {
       id: 1,
@@ -563,27 +567,38 @@ export function BlogsPage({ onNavigate }: BlogsPageProps) {
     }
   ];
 
-  // prefer persisted posts over static seed
-  const posts = persistedPosts.length ? persistedPosts : blogPosts;
+  // Use backend-only data; default to empty array when none
+  const posts = Array.isArray(persistedPosts) ? persistedPosts : [];
 
-  const categories = [
-    { value: 'all', label: 'All Categories', count: posts.length },
-    { value: 'Career Tips', label: 'Career Tips', count: posts.filter(post => post.category === 'Career Tips').length },
-    { value: 'Industry Insights', label: 'Industry Insights', count: posts.filter(post => post.category === 'Industry Insights').length },
-    { value: 'Skills Development', label: 'Skills Development', count: posts.filter(post => post.category === 'Skills Development').length },
-    { value: 'Career Growth', label: 'Career Growth', count: posts.filter(post => post.category === 'Career Growth').length }
-  ];
+  const categories = React.useMemo(() => {
+    const counts: Record<string, number> = posts.reduce((acc: Record<string, number>, post: any) => {
+      const cat = String(post?.category || '');
+      acc[cat] = (acc[cat] || 0) + 1;
+      return acc;
+    }, {});
+    return [
+      { value: 'all', label: 'All Categories', count: posts.length },
+      { value: 'Career Tips', label: 'Career Tips', count: counts['Career Tips'] || 0 },
+      { value: 'Industry Insights', label: 'Industry Insights', count: counts['Industry Insights'] || 0 },
+      { value: 'Skills Development', label: 'Skills Development', count: counts['Skills Development'] || 0 },
+      { value: 'Career Growth', label: 'Career Growth', count: counts['Career Growth'] || 0 }
+    ];
+  }, [posts]);
 
-  const featuredPosts = posts.filter(post => post.featured);
-  const recentPosts = posts.slice(0, 5);
+  const featuredPosts = React.useMemo(() => posts.filter((post: any) => !!post?.featured), [posts]);
+  const recentPosts = React.useMemo(() => posts.slice(0, 5), [posts]);
 
-  const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredPosts = React.useMemo(() => {
+    const term = searchTerm.toLowerCase().trim();
+    return posts.filter((post: any) => {
+      const title = String(post?.title || '').toLowerCase();
+      const excerpt = String(post?.excerpt || '').toLowerCase();
+      const tags: string[] = Array.isArray(post?.tags) ? post.tags.map((t: any) => String(t)) : [];
+      const matchesSearch = !term || title.includes(term) || excerpt.includes(term) || tags.some(t => t.toLowerCase().includes(term));
+      const matchesCategory = selectedCategory === 'all' || String(post?.category || '') === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [posts, searchTerm, selectedCategory]);
 
   const handleReadMore = (article: any) => {
     setSelectedArticle(article);

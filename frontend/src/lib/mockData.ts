@@ -29,6 +29,8 @@ export interface Job {
   rejectionReason?: string;
   submittedBy?: string;
   submittedDate?: string;
+  // Preferred candidate selection (Male/Female/Others/Both)
+  desiredCandidate?: string;
 }
 
 export const mockJobs: Job[] = [

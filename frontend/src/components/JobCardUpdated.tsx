@@ -254,18 +254,32 @@ export const JobCardUpdated = React.memo(function JobCardUpdated({ job, onViewJo
             {job.company}
           </button>
           {companyJobCount > 1 && (
-            <Badge 
-              className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 rounded-full font-medium hover:bg-blue-200 transition-colors cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onViewCompany) {
-                  onViewCompany(job.company);
-                }
-              }}
-              title={`${companyJobCount} jobs available at ${job.company}`}
-            >
-              {companyJobCount - 1}
-            </Badge>
+            <div className="flex items-center gap-1">
+              <Badge 
+                className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 border border-blue-200 rounded-full font-medium hover:bg-blue-200 transition-colors cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onViewCompany) {
+                    onViewCompany(job.company);
+                  }
+                }}
+                title={`${companyJobCount} jobs available at ${job.company}`}
+              >
+                +{companyJobCount - 1}
+              </Badge>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onViewCompany) {
+                    onViewCompany(job.company);
+                  }
+                }}
+                className="text-[10px] text-blue-700 hover:text-blue-800 transition-colors"
+                title={`${companyJobCount - 1} more jobs from this company`}
+              >
+                more jobs
+              </button>
+            </div>
           )}
         </div>
       </div>

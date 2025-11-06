@@ -40,50 +40,13 @@ export function BlogManagement() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<any>(null);
 
-  // Backend+mock powered blogs/news
-  const defaultMockBlogs = [
-    {
-      id: '1',
-      title: 'Top 10 Interview Tips for Job Seekers in Nepal',
-      slug: 'top-10-interview-tips-nepal',
-      excerpt: 'Master the art of job interviews with these proven tips specifically tailored for the Nepali job market.',
-      content: 'Full content here...',
-      author: 'Admin User',
-      category: 'Career Tips',
-      status: 'published',
-      publishDate: '2024-01-15',
-      views: 1234,
-      featured: true,
-      tags: ['interview', 'career', 'tips'],
-      seoTitle: 'Top 10 Interview Tips for Job Seekers in Nepal - MegaJobNepal',
-      seoDescription: 'Master job interviews in Nepal with these expert tips...'
-    },
-    {
-      id: '2',
-      title: 'IT Job Market Trends in Nepal 2024',
-      slug: 'it-job-market-trends-nepal-2024',
-      excerpt: 'Explore the latest trends and opportunities in the IT sector across Nepal.',
-      content: 'Full content here...',
-      author: 'Content Manager',
-      category: 'Industry News',
-      status: 'published',
-      publishDate: '2024-01-12',
-      views: 987,
-      featured: false,
-      tags: ['IT', 'market', 'trends'],
-      seoTitle: 'IT Job Market Trends in Nepal 2024 - MegaJobNepal',
-      seoDescription: 'Latest IT job trends in Nepal...'
-    }
-  ];
+  // Remove mock data: always start empty and use backend data only
+  const defaultMockBlogs: any[] = [];
 
   const [blogs, setBlogs] = useState<any[]>([]);
-  const [news, setNews] = useState<any[]>([]);
 
-  useEffect(() => {
-    // keep localStorage in sync when blogs or news change
-    try { dbService.saveBlogs?.(blogs); } catch { /* noop */ }
-    try { dbService.saveNews?.(news); } catch { /* noop */ }
-  }, [blogs, news]);
+  // Remove auto-save on every change to avoid heavy JSON stringify and network writes
+  // Saving is now explicit via the "Save" button only.
 
   useEffect(() => {
     const normalize = (b: any) => ({
@@ -92,7 +55,8 @@ export function BlogManagement() {
     });
     const loadBlogs = async () => {
       try {
-        const res = await blogService.list({ limit: 100 });
+        // Limit initial payload to reduce render cost on load
+        const res = await blogService.list({ limit: 20 });
         const list = Array.isArray(res) ? res : (res?.blogs || res?.items || []);
         if (Array.isArray(list) && list.length) {
           setBlogs(list.map(normalize));
@@ -101,27 +65,11 @@ export function BlogManagement() {
       } catch (err) {
         console.warn('Failed to load blogs from backend, falling back:', err);
       }
-      try {
-        const local = await dbService.getBlogs?.({ limit: 100 });
-        if (Array.isArray(local) && local.length) {
-          setBlogs(local.map(normalize));
-          return;
-        }
-      } catch {}
+      // No local/mock fallback: show empty list if backend returns nothing
       setBlogs(defaultMockBlogs);
     };
 
-    const loadNews = async () => {
-      try {
-        const res = await dbService.getNews?.({ limit: 100 });
-        if (Array.isArray(res)) setNews(res);
-      } catch {
-        setNews([]);
-      }
-    };
-
     loadBlogs();
-    loadNews();
   }, []);
 
   const [newPost, setNewPost] = useState({
@@ -147,14 +95,20 @@ export function BlogManagement() {
     'Work Culture'
   ];
 
-  const filteredBlogs = blogs.filter(blog => {
-    const matchesSearch = blog.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         blog.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (Array.isArray(blog.tags) ? blog.tags : (blog.tags || '').split(',')).some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = statusFilter === 'all' || blog.status === statusFilter;
-    const matchesCategory = categoryFilter === 'all' || blog.category === categoryFilter;
-    return matchesSearch && matchesStatus && matchesCategory;
-  });
+  const filteredBlogs = React.useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return blogs.filter((blog) => {
+      const title = String(blog.title || '').toLowerCase();
+      const excerpt = String(blog.excerpt || '').toLowerCase();
+      const tagsArr = Array.isArray(blog.tags) ? blog.tags : String(blog.tags || '').split(',');
+      const matchesSearch = title.includes(term) ||
+        excerpt.includes(term) ||
+        tagsArr.some((tag: string) => String(tag).toLowerCase().includes(term));
+      const matchesStatus = statusFilter === 'all' || blog.status === statusFilter;
+      const matchesCategory = categoryFilter === 'all' || blog.category === categoryFilter;
+      return matchesSearch && matchesStatus && matchesCategory;
+    });
+  }, [blogs, searchTerm, statusFilter, categoryFilter]);
 
   const handleCreatePost = async () => {
     if (!newPost.title.trim()) {
@@ -307,18 +261,17 @@ export function BlogManagement() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Blog & News Management</h2>
-          <p className="text-gray-600">Manage blog posts, news articles, and content</p>
+          <h2 className="text-2xl font-bold">Blog Management</h2>
+          <p className="text-gray-600">Manage blog posts and content</p>
         </div>
-        <Button onClick={() => { try { dbService.saveBlogs?.(blogs); dbService.saveNews?.(news); toast.success('Content saved'); } catch {} }} className="flex items-center gap-2">
+        <Button onClick={() => { try { dbService.saveBlogs?.(blogs); toast.success('Content saved'); } catch {} }} className="flex items-center gap-2">
           <Save className="h-4 w-4" /> Save
         </Button>
       </div>
 
       <Tabs defaultValue="blogs" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-1">
           <TabsTrigger value="blogs">Blog Posts</TabsTrigger>
-          <TabsTrigger value="news">News Articles</TabsTrigger>
         </TabsList>
 
         {/* Blog Posts */}
@@ -376,43 +329,7 @@ export function BlogManagement() {
           </Card>
         </TabsContent>
 
-        {/* News Articles */}
-        <TabsContent value="news" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>News Articles ({news.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-3">
-                <Label htmlFor="newsTitle">Title</Label>
-                <Input id="newsTitle" value={newPost.title} onChange={(e) => setNewPost({ ...newPost, title: e.target.value })} />
-              </div>
-              <div className="space-y-3">
-                <Label htmlFor="newsLink">Link</Label>
-                <Input id="newsLink" value={newPost.excerpt} onChange={(e) => setNewPost({ ...newPost, excerpt: e.target.value })} />
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={() => {
-                  const item = { id: Date.now().toString(), title: newPost.title, link: newPost.excerpt, published: new Date().toLocaleDateString() };
-                  setNews([item, ...news]);
-                  setNewPost({ ...newPost, title: '', excerpt: '' });
-                  toast.success('News item created');
-                }}>Add News</Button>
-              </div>
-              <div className="space-y-4">
-                {news.map((item) => (
-                  <div key={item.id} className="flex justify-between items-center border rounded p-3">
-                    <div>
-                      <div className="font-medium">{item.title}</div>
-                      <div className="text-sm text-blue-600 break-all">{item.link}</div>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setNews(news.filter(n => n.id !== item.id))} className="text-red-600">Delete</Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {/* News Articles removed — managed under separate News & Video section */}
       </Tabs>
 
       {/* Edit Dialog */}

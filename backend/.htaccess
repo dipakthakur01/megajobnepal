@@ -1,0 +1,4 @@
+PassengerAppType node
+PassengerStartupFile server.js
+PassengerBaseURI /api
+Options -Indexes

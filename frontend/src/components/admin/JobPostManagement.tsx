@@ -92,6 +92,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
     category: '',
     experience: '',
     jobLevel: '',
+    desiredCandidate: '',
     skillCategory: '',
     skillName: '',
     tagsInput: '',
@@ -238,6 +239,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
         tier: normalizeTier(newJob.tier) || 'latest',
         featured: !!newJob.featured,
         license_required: !!newJob.licenseRequired,
+        desired_candidate: newJob.desiredCandidate || undefined,
         deadline: newJob.deadline || undefined,
         skills: newJob.skillName ? [newJob.skillName] : [],
         tags: newJob.tagsInput
@@ -272,6 +274,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
         featured: !!(createdJob?.featured ?? newJob.featured),
         urgent: !!newJob.urgent,
         licenseRequired: !!(createdJob?.license_required ?? newJob.licenseRequired),
+        desiredCandidate: createdJob?.desired_candidate || newJob.desiredCandidate || '',
         deadline: createdJob?.deadline || newJob.deadline,
         status: createdJob?.status || 'active',
         applicationCount: 0,
@@ -303,6 +306,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
         category: '',
         experience: '',
         jobLevel: '',
+        desiredCandidate: '',
         skillCategory: '',
         skillName: '',
         tagsInput: '',
@@ -572,6 +576,21 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
                       <span className="text-sm text-gray-700">Check if a license is required</span>
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="desiredCandidate">Desired Candidate</Label>
+                    <select
+                      id="desiredCandidate"
+                      value={newJob.desiredCandidate}
+                      onChange={(e) => setNewJob({ ...newJob, desiredCandidate: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="">--Select Desired--</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Others">Others</option>
+                      <option value="Both">Both</option>
+                    </select>
+                  </div>
                 </div>
 
                 {/* Skill Category and Skill */}
@@ -729,6 +748,7 @@ export function JobPostManagement({ jobs, companies, onJobUpdate }: JobPostManag
                       category: '',
                       experience: '',
                       jobLevel: '',
+                      desiredCandidate: '',
                       skillCategory: '',
                       skillName: '',
                       tagsInput: '',

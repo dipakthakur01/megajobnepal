@@ -25,6 +25,8 @@ import { useApp } from '@/pages/providers/AppProvider';
 import { useAuth } from '@/components/auth/AuthContext';
 import { apiClient } from '../lib/api-client';
 import { toast } from 'sonner';
+import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import { normalizeMediaUrl } from '@/utils/media';
 
 interface CompanyDetailPageProps {
   companyName: string;
@@ -355,6 +357,23 @@ export function CompanyDetailPage({
                 {companyJobs.map((job) => (
                   <Card key={job.id} className="hover:shadow-lg transition-shadow duration-300 group">
                     <CardContent className="p-6">
+                      {/* Top cover image area for the job/company */}
+                      <div className="mb-4">
+                        <ImageWithFallback
+                          src={normalizeMediaUrl(
+                            job.coverImageUrl ||
+                            job.cover_image_url ||
+                            (job.heroImage ?? job.thumbnail) ||
+                            (company?.coverImageUrl as any) ||
+                            (company as any)?.cover_image_url ||
+                            company?.logo ||
+                            job.logo
+                          )}
+                          alt={`${job.title} cover`}
+                          className="w-full h-32 sm:h-36 object-cover rounded-md border border-gray-200 bg-gray-50"
+                          fallbackSrc="/CompanyCover.png"
+                        />
+                      </div>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <h3 className="font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">

@@ -43,9 +43,9 @@ export const NewsManagement: React.FC = () => {
   // Load news items and header settings from backend API on component mount
   useEffect(() => {
     (async () => {
-      // Load items (prefer backend, gracefully fall back to local storage)
+      // Load items from backend only; keep empty state if unavailable
       try {
-        const apiResult = await apiClient.getNews({ status: 'all' });
+        const apiResult = await apiClient.getNews({ status: 'all', limit: 20 });
         const items = Array.isArray((apiResult as any)?.news)
           ? (apiResult as any).news
           : Array.isArray(apiResult)
@@ -64,32 +64,29 @@ export const NewsManagement: React.FC = () => {
             createdAt: new Date(raw?.createdAt ?? raw?.created_at ?? raw?.updatedAt ?? raw?.updated_at ?? Date.now()),
             updatedAt: new Date(raw?.updatedAt ?? raw?.updated_at ?? raw?.publishDate ?? raw?.published_at ?? raw?.createdAt ?? raw?.created_at ?? Date.now()),
           } as any));
-          setNewsItems(normalized as any);
+          // Dedupe normalized items before setting state
+          const deduped = dedupeNewsItems(normalized as any);
+          setNewsItems(deduped as any);
+
+          // Targeted cleanup: remove specific test items and ensure featured first
+          try {
+            let cleaned = (deduped as any).filter((it: any) => {
+              const t = String(it?.title || '').trim();
+              return t !== 'Testing' && t !== 'Thakur Testing';
+            });
+            const featuredIdx = cleaned.findIndex((it: any) => String(it?.title || '').trim().toLowerCase() === 'thakur motivational song');
+            if (featuredIdx > 0) {
+              const featured = cleaned[featuredIdx];
+              cleaned = [featured, ...cleaned.slice(0, featuredIdx), ...cleaned.slice(featuredIdx + 1)];
+            }
+            if ((cleaned as any).length !== (deduped as any).length) {
+              await saveNewsItems(cleaned as any);
+            }
+          } catch {}
         }
       } catch (error) {
-        // Fallback to local storage browser DB if API is unavailable
-        try {
-          const { browserDBService } = await import('@/services/browser-db');
-          const localItems = browserDBService.getNews();
-          if (Array.isArray(localItems)) {
-            const normalized = localItems.map((raw: any, idx: number) => ({
-              id: String(raw?.id ?? raw?._id ?? `${raw?.link || raw?.title || 'item'}-${idx}`),
-              title: String(raw?.title ?? 'Untitled'),
-              link: String(raw?.link ?? raw?.url ?? '#'),
-              type: (raw?.type ?? ((raw?.link && (String(raw.link).includes('youtube.com') || String(raw.link).includes('youtu.be'))) ? 'youtube' : 'link')),
-              description: raw?.description ?? raw?.excerpt ?? '',
-              thumbnail: raw?.thumbnail ?? raw?.image_url ?? undefined,
-              published: raw?.published ?? raw?.publishDate ?? (raw?.published_at ? new Date(raw.published_at).toLocaleDateString() : ''),
-              isActive: raw?.isActive !== undefined ? !!raw.isActive : true,
-              createdAt: new Date(raw?.createdAt ?? raw?.created_at ?? raw?.updatedAt ?? raw?.updated_at ?? Date.now()),
-              updatedAt: new Date(raw?.updatedAt ?? raw?.updated_at ?? raw?.publishDate ?? raw?.published_at ?? raw?.createdAt ?? raw?.created_at ?? Date.now()),
-            } as any));
-            setNewsItems(normalized as any);
-          }
-        } catch (e) {
-          // Keep empty state; UI will show helpful message
-          console.warn('News fallback load failed:', e);
-        }
+        // Keep empty state; UI will show helpful message
+        console.warn('News load failed:', error);
       }
 
       // Load header title from site section settings
@@ -107,21 +104,18 @@ export const NewsManagement: React.FC = () => {
 
   // Save news items to backend API
   const saveNewsItems = async (items: NewsItem[]) => {
+    // Dedupe before persisting
+    const deduped = dedupeNewsItems(items);
     try {
       const svc = (await import('@/lib/db-service')).dbService;
-      await svc.saveNews?.(items);
-      setNewsItems(items);
-    } catch (error) {
-      console.warn('Primary saveNews failed, attempting local fallback:', error);
-      try {
-        const { browserDBService } = await import('@/services/browser-db');
-        browserDBService.saveNews(items as any);
-        setNewsItems(items);
-        toast.success('Saved locally (backend unreachable)');
-      } catch (e) {
-        console.error('Local fallback save failed:', e);
-        toast.error('Failed to save news items');
+      await svc.saveNews?.(deduped);
+      setNewsItems(deduped);
+      if (items.length !== deduped.length) {
+        toast.success(`Removed ${items.length - deduped.length} duplicate${items.length - deduped.length > 1 ? 's' : ''}`);
       }
+    } catch (error) {
+      console.error('Failed to save news items:', error);
+      toast.error('Failed to save news items');
     }
   };
 
@@ -246,6 +240,37 @@ export const NewsManagement: React.FC = () => {
   const generateYouTubeThumbnail = (url: string) => {
     const videoId = getYouTubeVideoId(url);
     return videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : null;
+  };
+
+  // --- Deduplication helpers ---
+  const normalizeLink = (link?: string) => (link || '').trim().toLowerCase().replace(/\/$/, '');
+  const getUniqueKey = (item: NewsItem) => {
+    if (item.type === 'youtube') {
+      const vid = getYouTubeVideoId(item.link);
+      if (vid) return `yt:${vid}`;
+    }
+    if (item.link) return `link:${normalizeLink(item.link)}`;
+    return `title:${(item.title || '').trim().toLowerCase()}`;
+  };
+  const dedupeNewsItems = (items: NewsItem[]) => {
+    const map = new Map<string, NewsItem>();
+    for (const it of items) {
+      const key = getUniqueKey(it);
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, it);
+      } else {
+        // Keep the newest/most recently updated
+        const existingUpdated = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const currentUpdated = it.updatedAt ? new Date(it.updatedAt).getTime() : 0;
+        map.set(key, currentUpdated >= existingUpdated ? { ...existing, ...it } : existing);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
   };
 
   const handleLinkChange = (link: string) => {

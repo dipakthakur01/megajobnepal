@@ -41,7 +41,7 @@ export function BlogsPage() {
     } catch {/* noop */}
   }, []);
 
-  const blogPosts = (persistedPosts && persistedPosts.length > 0) ? persistedPosts : [
+  const blogPosts = (persistedPosts && persistedPosts.length > 0) ? persistedPosts : /*
     {
       id: 1,
       title: 'The Ultimate Guide to Landing Your Dream Job in Nepal 2024',
@@ -548,26 +548,26 @@ export function BlogsPage() {
       featured: false,
       tags: ['networking', 'professional growth', 'career']
     }
-  ];
+  */ [];
 
-  const categories = [
+  const categories = React.useMemo(() => ([
     { value: 'all', label: 'All Categories', count: blogPosts.length },
     { value: 'Career Tips', label: 'Career Tips', count: blogPosts.filter(post => post.category === 'Career Tips').length },
     { value: 'Industry Insights', label: 'Industry Insights', count: blogPosts.filter(post => post.category === 'Industry Insights').length },
     { value: 'Skills Development', label: 'Skills Development', count: blogPosts.filter(post => post.category === 'Skills Development').length },
     { value: 'Career Growth', label: 'Career Growth', count: blogPosts.filter(post => post.category === 'Career Growth').length }
-  ];
+  ]), [blogPosts]);
 
-  const featuredPosts = blogPosts.filter(post => post.featured);
-  const recentPosts = blogPosts.slice(0, 5);
+  const featuredPosts = React.useMemo(() => blogPosts.filter(post => post.featured), [blogPosts]);
+  const recentPosts = React.useMemo(() => blogPosts.slice(0, 5), [blogPosts]);
 
-  const filteredPosts = blogPosts.filter(post => {
+  const filteredPosts = React.useMemo(() => blogPosts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          post.excerpt.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          post.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = selectedCategory === 'all' || post.category === selectedCategory;
     return matchesSearch && matchesCategory;
-  });
+  }), [blogPosts, searchTerm, selectedCategory]);
 
   const handleReadMore = (article: any) => {
     setSelectedArticle(article);

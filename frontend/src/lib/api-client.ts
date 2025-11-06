@@ -1039,6 +1039,18 @@ class APIClient {
     return { jobs, pagination: res?.pagination };
   }
 
+  // Admin dashboard statistics
+  async getAdminDashboardStats() {
+    // Returns { totalUsers, activeUsers, totalStaff, activeStaff, totalJobs, totalCompanies, totalApplications, recentJobs, recentApplications }
+    return await this.request('/admin/dashboard/stats');
+  }
+
+  // Admin job statistics
+  async getAdminJobStats() {
+    // Returns { success, data: { total, pending, approved, rejected, by_tier: { megajob, premium, prime, newspaper } } }
+    return await this.request('/admin/jobs/stats');
+  }
+
   // Admin job approval management
   async approveAdminJob(id: string, tier: 'megajob' | 'premium' | 'prime' | 'newspaper', notes?: string) {
     return await this.request(`/admin/jobs/${id}/approve`, {

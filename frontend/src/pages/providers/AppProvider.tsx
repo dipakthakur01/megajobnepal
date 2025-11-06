@@ -500,15 +500,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Job not found or has been removed');
       }
       
-      // Check if already applied
-      const alreadyApplied = applications.some(
-        app => app.jobId === jobId && app.userId === currentUser.id
-      );
-      
-      if (alreadyApplied) {
-        console.warn('Already applied to this job');
-        throw new Error('You have already applied for this job');
-      }
+      // Do not block on client-side; rely on backend to enforce same-job duplicates
       
       // Call backend API to submit application
       const apiApplicationData = {

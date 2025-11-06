@@ -49,6 +49,9 @@ interface Job {
   // Optional license flags from admin panels
   licenseRequired?: boolean | string;
   license_required?: boolean | string;
+  // Desired candidate preference from admin panels
+  desiredCandidate?: string;
+  desired_candidate?: string;
 }
 
 interface ApplicationData {
@@ -180,8 +183,8 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
     }
     
     if (hasApplied) {
-      toast.error('You have already applied for this job');
-      return;
+      // Allow re-submission; backend will enforce per-job duplicates
+      toast.info('You have already applied for this job. Re-submitting will be validated.');
     }
     
     try {
@@ -269,6 +272,19 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
       return trimmed; // show provided license name/details
     }
     return val ? 'Yes' : 'No';
+  };
+
+  const getDesiredCandidateDisplay = (jobData: Job) => {
+    const raw = (jobData.desired_candidate ?? jobData.desiredCandidate) as any;
+    if (raw === undefined || raw === null) return 'Not specified';
+    const s = String(raw).trim();
+    if (!s) return 'Not specified';
+    const l = s.toLowerCase();
+    if (['male','m'].includes(l)) return 'Male';
+    if (['female','f','woman','women'].includes(l)) return 'Female';
+    if (['others','other','non-binary','nonbinary','third gender'].includes(l)) return 'Others';
+    if (['both','any','all','any gender','any-gender','anygender'].includes(l)) return 'Both';
+    return s;
   };
 
   const getJobTierBadge = (tier: string) => {
@@ -685,6 +701,10 @@ export function JobDetail({ job, relatedJobs, onApply, onSave, isSaved, hasAppli
                   <div className="flex justify-between">
                     <span className="text-gray-600">Experience:</span>
                     <span className="font-medium">{safeJob.experience}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Desired Candidate:</span>
+                    <span className="font-medium">{getDesiredCandidateDisplay(safeJob)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">License Required:</span>

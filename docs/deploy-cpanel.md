@@ -7,7 +7,7 @@
 
 ## Prerequisites
 - cPanel access for megajobnepal.com.np
-- MySQL user `megajob1_megajob` with privileges on DB `megajob1_megajobnepal` (as in your screenshot)
+- MySQL user `megajob1_thakur_db` with privileges on DB `megajob1_megajobnepal` (as in your screenshot)
 
 ## Backend (Node.js API)
 1. cPanel → Setup Node.js App → Create Application
@@ -23,7 +23,7 @@
    - `PORT=3001`
    - `MYSQL_HOST=localhost`
    - `MYSQL_PORT=3306`
-   - `MYSQL_USER=megajob1_megajob`
+   - `MYSQL_USER=megajob1_thakur_db`
    - `MYSQL_PASSWORD=<your password>`
    - `MYSQL_DATABASE=megajob1_megajobnepal`
    - `MYSQL_SKIP_CREATE_DB=true`

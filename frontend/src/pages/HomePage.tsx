@@ -100,6 +100,65 @@ export const HomePage = React.memo(function HomePage({
     });
   }, [jobs, searchQuery, location, category]);
 
+  // Select a single highlighted job per company and compute total count
+  const dedupedJobsByCompany = useMemo(() => {
+    // Tier priority: megajob > premium > prime > newspaper > latest
+    const tierRank = (t: string | undefined) => {
+      const n = normalizeTier(t);
+      switch (n) {
+        case 'megajob': return 5;
+        case 'premium': return 4;
+        case 'prime': return 3;
+        case 'newspaper': return 2;
+        default: return 1; // latest/unknown
+      }
+    };
+
+    type Picked = { job: Job; count: number };
+    const byCompany = new Map<string, Picked>();
+
+    filteredJobs.forEach((job) => {
+      const companyName = (job as any)?.company?.name || (job as any)?.company || '';
+      const key = String(companyName).trim().toLowerCase();
+      if (!key) return;
+
+      const current: Picked | undefined = byCompany.get(key);
+      if (!current) {
+        byCompany.set(key, { job, count: 1 });
+      } else {
+        // Increment total job count for this company
+        current.count += 1;
+        // Prefer better tier; if equal tier, prefer newer publish/post date
+        const a = current.job; const b = job;
+        const rankA = tierRank((a as any).tier);
+        const rankB = tierRank((b as any).tier);
+        const dateA = new Date((a as any).publishedDate || (a as any).postedDate || 0).getTime();
+        const dateB = new Date((b as any).publishedDate || (b as any).postedDate || 0).getTime();
+
+        const shouldReplace = rankB > rankA || (rankB === rankA && dateB > dateA);
+        if (shouldReplace) {
+          byCompany.set(key, { job: b, count: current.count });
+        }
+      }
+    });
+
+    // Produce list with companyJobCount annotation
+    const picked: (Job & { companyJobCount?: number })[] = Array.from(byCompany.values()).map(({ job, count }) => ({
+      ...(job as any),
+      companyJobCount: count,
+    }));
+
+    // Sort by tier rank then date for consistent ordering
+    return picked.sort((a, b) => {
+      const ra = tierRank((a as any).tier);
+      const rb = tierRank((b as any).tier);
+      if (rb !== ra) return rb - ra;
+      const ad = new Date((a as any).publishedDate || (a as any).postedDate || 0).getTime();
+      const bd = new Date((b as any).publishedDate || (b as any).postedDate || 0).getTime();
+      return bd - ad;
+    });
+  }, [filteredJobs]);
+
   // Categorize filtered jobs by tier
   const jobsByTier = useMemo(() => {
     const categorized = {
@@ -109,8 +168,8 @@ export const HomePage = React.memo(function HomePage({
       newspaper: [] as Job[],
       latest: [] as Job[]
     };
-
-    filteredJobs.forEach(job => {
+    // Use deduped one-per-company list for Home page
+    dedupedJobsByCompany.forEach(job => {
       const tier = normalizeTier(job.tier);
       if (tier === 'megajob') {
         categorized.megajob.push(job);
@@ -124,9 +183,8 @@ export const HomePage = React.memo(function HomePage({
         categorized.latest.push(job);
       }
     });
-
     return categorized;
-  }, [filteredJobs]);
+  }, [dedupedJobsByCompany]);
 
   // Memoize categories for better performance
   const categories = useMemo(() => [
@@ -552,7 +610,7 @@ export const HomePage = React.memo(function HomePage({
             </Button>
           </div>
           <div className="job-grid-full-width">
-            {[...filteredJobs]
+            {[...dedupedJobsByCompany]
               .sort((a, b) => {
                 const aDate = new Date(a.publishedDate || a.postedDate || 0).getTime();
                 const bDate = new Date(b.publishedDate || b.postedDate || 0).getTime();

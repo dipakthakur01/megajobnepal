@@ -39,10 +39,27 @@ export const NewsManagement: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const items = await (await import('@/lib/db-service')).dbService.getNews?.({ status: 'all' });
+        const items = await (await import('@/lib/db-service')).dbService.getNews?.({ status: 'all', limit: 20 });
         if (Array.isArray(items)) {
-          // Persist a deduped list to the backend and state
-          await saveNewsItems(items as NewsItem[]);
+          // Dedupe for local state only; no auto-persist on load
+          const deduped = dedupeNewsItems(items as NewsItem[]);
+          setNewsItems(deduped);
+
+          // Targeted cleanup: remove specific test items and ensure featured first
+          try {
+            let cleaned = (deduped as any).filter((it: any) => {
+              const t = String(it?.title || '').trim();
+              return t !== 'Testing' && t !== 'Thakur Testing';
+            });
+            const featuredIdx = cleaned.findIndex((it: any) => String(it?.title || '').trim().toLowerCase() === 'thakur motivational song');
+            if (featuredIdx > 0) {
+              const featured = cleaned[featuredIdx];
+              cleaned = [featured, ...cleaned.slice(0, featuredIdx), ...cleaned.slice(featuredIdx + 1)];
+            }
+            if ((cleaned as any).length !== (deduped as any).length) {
+              await saveNewsItems(cleaned as any);
+            }
+          } catch {}
         }
       } catch (error) {
         console.error('Error loading news items from API:', error);

@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { normalizeMediaUrl } from '@/utils/media';
+import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function AboutPage() {
   const [stats, setStats] = useState([
@@ -290,10 +291,11 @@ export function AboutPage() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <img
-                src={overviewMember.image || 'https://images.unsplash.com/photo-1607746882042-944635dfe10e?q=80&w=1349&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'}
+              <ImageWithFallback
+                src={normalizeMediaUrl(overviewMember.image)}
                 alt={overviewMember.name || 'Team Member'}
                 className="w-full h-48 object-cover rounded"
+                fallbackSrc={'https://images.unsplash.com/photo-1607746882042-944635dfe10e?q=80&w=1349&auto=format&fit=crop&ixlib=rb-4.0.3'}
               />
               {overviewMember.bio && (
                 <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: String(overviewMember.bio) }} />
